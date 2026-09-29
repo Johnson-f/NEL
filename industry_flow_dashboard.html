@@ -26,6 +26,9 @@
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
     main { width:100%; max-width:2200px; margin:0 auto; padding:24px 40px 40px; }
+    .site-nav { display:flex; justify-content:center; gap:7px; margin:0 0 18px; }
+    .site-nav a { min-width:92px; padding:7px 13px; border:1px solid var(--line); border-radius:7px; color:var(--text); text-align:center; text-decoration:none; font-size:14px; font-weight:650; }
+    .site-nav a:hover,.site-nav a.active { background:var(--text); color:var(--bg); border-color:var(--text); }
     h2 { font-size:17px; margin:0 0 14px; }
     .topbar { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; margin-bottom:22px; }
     .dashboard-title { margin:0; color:var(--text); font-size:19px; font-weight:650; letter-spacing:-.01em; }
@@ -63,11 +66,12 @@
     .snapshot-date { color:#F5F2E8; font-size:14px; font-weight:600; }
     @media (max-width:1750px) { .window-sections { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width:1180px) { .window-sections { grid-template-columns:1fr; } .bar-row { grid-template-columns:130px 1fr 34px; font-size:12px; } main { padding:18px 16px; } }
-    @media (max-width:640px) { .topbar { grid-template-columns:1fr; justify-items:start; gap:12px; } .dashboard-title { justify-self:center; } .topbar .download-btn { justify-self:start; } .section-heading { grid-template-columns:1fr auto; } .section-heading h2 { grid-column:1; text-align:left; } .section-heading .download-btn { grid-column:2; } }
+    @media (max-width:640px) { .site-nav { justify-content:flex-start; overflow-x:auto; } .topbar { grid-template-columns:1fr; justify-items:start; gap:12px; } .dashboard-title { justify-self:center; } .topbar .download-btn { justify-self:start; } .section-heading { grid-template-columns:1fr auto; } .section-heading h2 { grid-column:1; text-align:left; } .section-heading .download-btn { grid-column:2; } }
   </style>
 </head>
 <body>
 <main>
+  <nav class="site-nav" aria-label="Dashboard pages"><a class="active" href="index.html">Stocks</a><a href="themes.html">Themes</a><a href="sectors.html">Sectors</a></nav>
   <div class="topbar"><select id="date" aria-label="Snapshot date"></select><h1 id="thematic-title" class="dashboard-title">Thematic Leadership</h1><button id="download-image" class="download-btn" type="button">Snapshot</button></div>
   <div id="leadership-sections" class="window-sections"></div>
   <div class="section-heading"><h2 id="liquid-title">Liquid Leaders (LL)</h2><button id="download-ll" class="download-btn" type="button">Export LL</button></div>

@@ -17,6 +17,18 @@ After NEL is built, the scanner downloads three months of daily OHLC history for
 
 The daily run writes `tight_non_extended_leaders_YYYY-MM-DD.csv` and a symbol-only `outputs/EXPORT/tight_nel_symbols_YYYY-MM-DD.csv`. The dashboard displays separate 1-, 3-, and 6-month Tight NEL tables and can export the selected Tight NEL symbol list.
 
+The separate Themes and Sectors studies use fixed ETF universes and are dated with the actual completed market session they measure. Unlike the stock NEL list, their dates are not advanced to the next trading session.
+
+## Theme and sector ETF studies
+
+The shared navigation bar links the stock dashboard to `themes.html` and `sectors.html`. Both ETF studies use adjusted close for 1-, 3-, and 6-month performance, while ADR%, ATR%, SMA50 extension, liquidity, and Tight NEL calculations use raw regular-session OHLC and volume.
+
+The Themes page ranks ten unique groups per performance window. Every ETF first receives a percentile rank, then each group is scored as `70% × median member percentile + 30% × strongest member percentile`. Multiple strong funds therefore confirm a group without occupying multiple leaderboard positions. All member ETFs remain available for the NEL and Tight NEL views. The Sectors page applies the same calculations to the eleven fixed sector ETFs and keeps the top three.
+
+ADR and liquidity are informational on these pages and never exclude an ETF. NEL still means no more than 4 ATR extensions above SMA50, and Tight NEL applies the same fast 3–5 day coil used by the stock page. Clicking a group or ETF opens its current top stock holdings, excluding cash, bonds, derivatives, collateral, commodities, crypto assets, and fund holdings. Holdings include reported weight plus average dollar volume and extension when a valid U.S.-listed price history is available.
+
+Historical rankings are backfilled from January without look-ahead: each historical row uses only data that existed through that close. Current holdings are not reconstructed historically; the drawer states when they were retrieved.
+
 ## Setup
 
 ```bash
@@ -33,7 +45,7 @@ python focus_list.py
 
 ## Automatic daily run (macOS)
 
-The installed scheduler checks once per minute and runs the scanner once after 4:10 PM New York time on regular US market days. It labels each output for the next US trading session, skipping weekends and market holidays. If the Mac wakes later that evening, it catches up automatically. It handles daylight-saving changes and writes each run to `logs/daily_scan_YYYY-MM-DD.log`.
+The installed scheduler checks once per minute and runs the scanner once after 4:25 PM New York time on regular US market days. The extra delay lets Yahoo finalize the regular-session daily close used by the ETF pages. The run refuses to publish stale ETF data and the second cloud schedule retries an hour later. Stock NEL outputs are labelled for the next US trading session, skipping weekends and market holidays. Theme and Sector snapshots keep the date of the actual completed close because they are historical studies. If the Mac wakes later that evening, it catches up automatically. It handles daylight-saving changes and writes each run to `logs/daily_scan_YYYY-MM-DD.log`.
 
 ## Premarket RVOL scanner
 

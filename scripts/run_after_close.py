@@ -75,7 +75,7 @@ def should_run(now: datetime) -> bool:
     return (
         now.weekday() < 5
         and now.date() not in nyse_holidays(now.year)
-        and (now.hour, now.minute) >= (16, 10)
+        and (now.hour, now.minute) >= (16, 25)
     )
 
 
@@ -117,6 +117,15 @@ def main() -> int:
                 text=True,
                 check=False,
             )
+            if result.returncode == 0:
+                result = subprocess.run(
+                    [str(scanner_python), "etf_strength.py", "--close-date", now.date().isoformat()],
+                    cwd=PROJECT_DIR,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    check=False,
+                )
             log.write(f"--- Scheduled run finished with exit code {result.returncode} ---\n")
         if result.returncode == 0:
             MARKER.write_text(now.date().isoformat() + "\n", encoding="utf-8")
