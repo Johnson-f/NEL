@@ -142,6 +142,7 @@ def write_dashboard(output_dir: Path) -> Path:
     @media (max-width:1180px) { .window-sections { grid-template-columns:1fr; } .bar-row { grid-template-columns:130px 1fr 34px; font-size:12px; } main { padding:18px 16px; } }
     @media (max-width:640px) { .site-nav { justify-content:flex-start; overflow-x:auto; } .topbar { grid-template-columns:1fr; justify-items:start; gap:12px; } .dashboard-title { justify-self:center; } .topbar .download-btn { justify-self:start; } .section-heading { grid-template-columns:1fr auto; } .section-heading h2 { grid-column:1; text-align:left; } .section-heading .download-btn { grid-column:2; } }
   </style>
+  <link rel="stylesheet" href="assets/date-select.css?v=2">
 </head>
 <body>
 <main>
@@ -269,6 +270,7 @@ async function downloadPageImage() {
 }
 if (!history.length) { document.querySelector('main').innerHTML = '<p class="empty">Run the scanner once to create a momentum-leader snapshot.</p>'; } else { updateDates(); dateSelect.addEventListener('change', render); downloadButton.addEventListener('click', downloadPageImage); downloadLiquidButton.addEventListener('click', () => downloadSymbols('liquid', 'liquid_leaders')); downloadNelButton.addEventListener('click', () => downloadSymbols('nel', 'nel')); downloadTightButton.addEventListener('click', () => downloadSymbols('tight', 'tight_nel')); window.addEventListener('resize', render); render(); }
 </script>
+<script src="assets/date-select.js?v=2"></script>
 </body>
 </html>'''
     rendered = template.replace("__DATA__", payload)
