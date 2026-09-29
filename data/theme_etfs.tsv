@@ -26,15 +26,15 @@ CIBR	Cybersecurity	Cybersecurity software, networking and security-service compa
 CLOU	Cloud	Global companies deriving meaningful revenue from cloud computing
 CNBS	Cannabis	Actively selected global cannabis-related companies
 COPX	Copper	Global copper miners—not the physical copper price
-CRAK	Oil & Gas	Global companies focused on crude oil refining and downstream petroleum products
+CRAK	Oil & gas	Global companies focused on crude oil refining and downstream petroleum products
 DRAM	Memory	Concentrated exposure to global DRAM, NAND and storage-memory companies
 DRIV	Electric vehicles	Broad EV and autonomous-driving value chain
 DXYZ	Private technology	Closed-end fund holding private high-growth technology companies
 ENFR	Energy infrastructure	U.S. and Canadian pipelines, storage and energy-processing companies
 ERTH	Sustainable economy	Global companies across clean energy, water, green buildings and agriculture
 ESGU	ESG	Broad U.S. market tilted toward stronger ESG-rated companies
-ESPO	Gaming	Video-game publishers, esports platforms and gaming hardware
-ETHA	Ethereum	Holds Ether directly for spot-price exposure
+ESPO	Video games	Video-game publishers, esports platforms and gaming hardware
+ETHA	Cryptocurrency	Holds Ether directly for spot-price exposure
 EVX	Environment	Waste-management and environmental-service companies
 EWY	South Korea	Large and mid-sized South Korean companies
 EWZ	Brazil	Large and mid-sized Brazilian companies
@@ -47,7 +47,7 @@ FOTO	Photonics	Optical interconnect, laser and photonic-chip companies serving A
 FRI	Real estate	Market-cap-weighted U.S. REITs owning and operating property
 FTXG	Food & beverage	U.S. food and beverage companies weighted by growth, value and volatility
 FXI	China	Approximately 50 large Chinese companies listed in Hong Kong
-GBTC	Bitcoin	Legacy Grayscale fund holding Bitcoin directly for spot-price exposure
+GBTC	Cryptocurrency	Legacy Grayscale fund holding Bitcoin directly for spot-price exposure
 GDX	Gold miners	Large and mid-sized global gold-mining companies
 GDXJ	Gold miners	Smaller and more speculative gold-mining companies
 GENZ	Digital economy	Fintech, gig-economy and online-betting platforms serving digital natives
@@ -65,19 +65,19 @@ HYDR	Hydrogen	Hydrogen producers, fuel cells and electrolyzer companies
 IAI	Capital markets	Market-cap-weighted brokers, investment banks and stock exchanges
 IAK	Insurance	Market-cap-weighted U.S. insurance companies
 IBB	Biotechnology	Market-cap-weighted large Nasdaq-listed biotechnology companies
-IBIT	Bitcoin	Holds Bitcoin directly for spot-price exposure
+IBIT	Cryptocurrency	Holds Bitcoin directly for spot-price exposure
 IBUY	Online retail	Companies earning most of their revenue from online sales
 ICLN	Clean energy	Broad global renewable-energy producers and equipment companies
 IDGT	Digital infrastructure	Data-center and telecom-tower REITs plus communications equipment
 IEO	Oil & gas	Market-cap-weighted large U.S. oil and gas producers
 IGF	Infrastructure	Global owners and operators of utilities, transport and infrastructure
 IGV	Software	Market-cap-weighted large software companies
-IHF	Healthcare providers	Market-cap-weighted U.S. insurers, hospitals and care providers
-IHI	Medical devices	Market-cap-weighted large U.S. medical-device manufacturers
+IHF	Healthcare services	Market-cap-weighted U.S. insurers, hospitals and care providers
+IHI	Medical equipment	Market-cap-weighted large U.S. medical-device manufacturers
 ILF	Latin America	40 large companies from Brazil, Mexico, Chile and other Latin markets
 IPAY	Payments	Global card networks, payment processors and digital-wallet companies
 ITA	Defense	Market-cap-weighted portfolio dominated by major U.S. defense contractors
-ITB	Homebuilding	Market-cap-weighted U.S. homebuilders and housing suppliers
+ITB	Housing	Market-cap-weighted U.S. homebuilders and housing suppliers
 IYC	Consumer discretionary	Market-cap-weighted U.S. cyclical consumer and retail companies
 IYG	Financial services	Market-cap-weighted U.S. banks, payment firms and financial-services companies
 IYK	Consumer staples	Market-cap-weighted U.S. food, beverage and household-staples companies
@@ -155,7 +155,7 @@ VEGI	Agriculture	Global agricultural product and equipment producers not crop co
 VICE	Vice industries	Alcohol, tobacco, gambling and other vice-related businesses
 WCLD	Cloud	Equal-weight emerging cloud-software companies with higher growth exposure
 WEED	Cannabis	Concentrated exposure to five leading U.S. cannabis operators via swaps
-WGMI	Ai HPC Datacenter / Crypto Mining	Bitcoin-mining companies and HPC Ai Datacenters
+WGMI	AI HPC Datacenter / Crypto Mining	Bitcoin-mining companies and HPC AI datacenters
 WOOD	Timber	Global forestry, paper, packaging and timber REIT companies
 XAR	Defense	Equal-weight aerospace and defense, including smaller contractors
 XBI	Biotechnology	Equal-weight biotech with substantial small-company exposure

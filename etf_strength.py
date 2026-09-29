@@ -161,7 +161,7 @@ def _calendar_return(adjusted: pd.Series, months: int) -> pd.Series:
 def build_metric_history(history: pd.DataFrame) -> pd.DataFrame:
     """Calculate ETF performance, volatility, extension, and coil metrics for every bar."""
     frame = history.copy()
-    for column in ["high", "low", "close", "volume"]:
+    for column in ["open", "high", "low", "close", "volume"]:
         frame[column] = pd.to_numeric(frame.get(column), errors="coerce")
     adjusted = pd.to_numeric(frame.get("adj_close", frame["close"]), errors="coerce")
     previous_close = frame["close"].shift(1)
@@ -208,6 +208,9 @@ def build_metric_history(history: pd.DataFrame) -> pd.DataFrame:
     metrics["perf_1m"] = _calendar_return(adjusted, 1)
     metrics["perf_3m"] = _calendar_return(adjusted, 3)
     metrics["perf_6m"] = _calendar_return(adjusted, 6)
+    metrics["perf_1w"] = 100 * (adjusted / adjusted.shift(5) - 1)
+    metrics["intraday_change"] = 100 * (frame["close"] / frame["open"] - 1)
+    metrics["close_to_close_change"] = 100 * (adjusted / adjusted.shift(1) - 1)
     metrics["is_tight"] = is_tight.fillna(False)
     metrics["coil_setup"] = coil_setup
     metrics["rmv_15d"] = rmv
@@ -328,7 +331,7 @@ def rank_groups_for_session(
             }
         )
     ranked.sort(key=lambda group: (group["score"], group["median_performance"], group["best_performance"]), reverse=True)
-    for rank, group in enumerate(ranked[:top_n], start=1):
+    for rank, group in enumerate(ranked, start=1):
         group["rank"] = rank
     return ranked[:top_n]
 
@@ -340,12 +343,58 @@ def build_snapshots(
     top_n: int,
 ) -> list[dict]:
     snapshots = []
+    metadata_by_ticker = universe.set_index("Ticker")
     for session in session_dates:
-        windows = {
-            label: rank_groups_for_session(metric_histories, universe, session, f"perf_{label}", top_n)
-            for label in WINDOWS
-        }
-        snapshots.append({"date": session.isoformat(), "windows": windows})
+        windows = {}
+        leadership = {}
+        for label in WINDOWS:
+            all_groups = rank_groups_for_session(
+                metric_histories, universe, session, f"perf_{label}", len(universe)
+            )
+            windows[label] = all_groups[:top_n]
+            leadership[label] = [
+                {"group": group["group"], "score": group["score"]}
+                for group in all_groups
+            ]
+        date_key = pd.Timestamp(session)
+        daily_changes = []
+        for ticker, metadata in metadata_by_ticker.iterrows():
+            history = metric_histories.get(ticker)
+            if history is None or date_key not in history.index:
+                daily_changes.append(
+                    {
+                        "symbol": ticker,
+                        "group": metadata["Group"],
+                        "intraday": None,
+                        "one_day": None,
+                        "one_week": None,
+                        "one_month": None,
+                        "three_months": None,
+                        "six_months": None,
+                    }
+                )
+                continue
+            row = history.loc[date_key]
+            daily_changes.append(
+                {
+                    "symbol": ticker,
+                    "group": metadata["Group"],
+                    "intraday": _clean_number(row.get("intraday_change")),
+                    "one_day": _clean_number(row.get("close_to_close_change")),
+                    "one_week": _clean_number(row.get("perf_1w")),
+                    "one_month": _clean_number(row.get("perf_1m")),
+                    "three_months": _clean_number(row.get("perf_3m")),
+                    "six_months": _clean_number(row.get("perf_6m")),
+                }
+            )
+        snapshots.append(
+            {
+                "date": session.isoformat(),
+                "windows": windows,
+                "leadership": leadership,
+                "daily_changes": daily_changes,
+            }
+        )
     return snapshots
 
 

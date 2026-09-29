@@ -6,8 +6,10 @@ import pandas as pd
 
 from etf_strength import (
     _is_stock_holding,
+    DATA_DIR,
     build_metric_history,
     build_snapshots,
+    load_universe,
     rank_groups_for_session,
     validate_actual_close,
     validate_completed_session,
@@ -28,6 +30,9 @@ def metric_frame(session: date, performance: float, extension: float = 2.0) -> p
             "is_tight": True,
             "coil_setup": "3D",
             "rmv_15d": 10.0,
+            "intraday_change": 1.25,
+            "close_to_close_change": -0.75,
+            "perf_1w": 2.5,
         }],
         index=[pd.Timestamp(session)],
     )
@@ -57,6 +62,7 @@ class EtfStrengthTests(unittest.TestCase):
         index = pd.bdate_range("2025-12-01", periods=180)
         raw_close = pd.Series(range(100, 280), index=index, dtype=float)
         history = pd.DataFrame({
+            "open": raw_close - 1,
             "high": raw_close + 2,
             "low": raw_close - 2,
             "close": raw_close,
@@ -68,6 +74,7 @@ class EtfStrengthTests(unittest.TestCase):
         prior = history.loc[history.index <= target, "adj_close"].iloc[-1]
         expected = 100 * (history["adj_close"].iloc[-1] / prior - 1)
         self.assertAlmostEqual(metrics["perf_1m"].iloc[-1], expected)
+        self.assertAlmostEqual(metrics["intraday_change"].iloc[-1], 100 * (279 / 278 - 1))
 
     def test_stale_market_close_is_rejected(self):
         histories = {"SPY": pd.DataFrame({"close": [100]}, index=[pd.Timestamp("2026-09-25")])}
@@ -82,9 +89,46 @@ class EtfStrengthTests(unittest.TestCase):
 
     def test_historical_snapshot_uses_actual_close_date(self):
         session = date(2026, 9, 25)
-        universe = pd.DataFrame([{"Ticker": "AIQ", "Group": "AI", "Description": "AI"}])
+        universe = pd.DataFrame([
+            {"Ticker": "AIQ", "Group": "AI", "Description": "AI"},
+            {"Ticker": "MISS", "Group": "Unavailable", "Description": "No bars"},
+        ])
         snapshots = build_snapshots({"AIQ": metric_frame(session, 20)}, universe, [session], 10)
         self.assertEqual(snapshots[0]["date"], "2026-09-25")
+        self.assertEqual(snapshots[0]["daily_changes"][0]["intraday"], 1.25)
+        self.assertEqual(snapshots[0]["daily_changes"][0]["one_day"], -0.75)
+        self.assertEqual(snapshots[0]["daily_changes"][0]["one_week"], 2.5)
+        self.assertEqual(snapshots[0]["daily_changes"][1]["symbol"], "MISS")
+        self.assertIsNone(snapshots[0]["daily_changes"][1]["one_day"])
+
+    def test_overlapping_theme_etfs_share_one_group(self):
+        universe = load_universe(DATA_DIR / "theme_etfs.tsv").set_index("Ticker")
+        expected = {
+            "ETHA": "Cryptocurrency", "GBTC": "Cryptocurrency", "IBIT": "Cryptocurrency",
+            "ESPO": "Video games", "NERD": "Video games",
+            "IHF": "Healthcare services", "XHS": "Healthcare services",
+            "IHI": "Medical equipment", "XHE": "Medical equipment",
+            "HOMZ": "Housing", "ITB": "Housing", "XHB": "Housing",
+        }
+        self.assertEqual({ticker: universe.loc[ticker, "Group"] for ticker in expected}, expected)
+        sectors = load_universe(DATA_DIR / "sector_etfs.tsv").set_index("Ticker")
+        self.assertEqual(sectors.loc["XLF", "Group"], "Financial Services")
+
+    def test_sector_dashboard_omits_nel_sections_and_has_six_performance_modes(self):
+        from etf_dashboard import render_dashboard
+
+        payload = {
+            "kind": "sectors",
+            "title": "Sector Leadership",
+            "top_n": 3,
+            "holdings_as_of": "2026-09-28",
+            "snapshots": [],
+            "holdings": {},
+        }
+        html = render_dashboard(payload, "sectors")
+        self.assertNotIn('id="nel-title"', html)
+        self.assertNotIn('id="tight-title"', html)
+        self.assertEqual(html.count("data-change-mode="), 6)
 
     def test_non_stock_holdings_are_removed(self):
         funds = {"HACK", "BUG"}
