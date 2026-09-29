@@ -50,9 +50,19 @@ def collect_industry_history(output_dir: Path) -> list[dict]:
                 "atr_extension_from_50d", "is_top_1m", "is_top_3m", "is_top_6m",
             ] if column in nel.columns]
             nel_records = json.loads(nel.loc[:, columns].to_json(orient="records"))
+        tight_path = output_dir / f"tight_non_extended_leaders_{match.group(1)}.csv"
+        tight_records = []
+        if tight_path.exists():
+            tight = pd.read_csv(tight_path)
+            columns = [column for column in [
+                "name", "industry", "average_dollar_volume_30d", "dollar_volume_30d", "Perf.1M", "Perf.3M", "Perf.6M",
+                "atr_extension_from_50d", "is_top_1m", "is_top_3m", "is_top_6m", "coil_setup", "rmv_15d",
+                "rmv_tight_days", "coil_range_5d_atr", "true_range_ratio_3d", "true_range_ratio_5d",
+            ] if column in tight.columns]
+            tight_records = json.loads(tight.loc[:, columns].to_json(orient="records"))
         # `groups` comes only from full momentum-leader files. The NEL subset
         # below is a display table and cannot influence theme leadership.
-        snapshots.append({"date": match.group(1), "groups": groups, "liquid": liquid_records, "nel": nel_records})
+        snapshots.append({"date": match.group(1), "groups": groups, "liquid": liquid_records, "nel": nel_records, "tight": tight_records})
     return snapshots
 
 
@@ -121,6 +131,7 @@ def write_dashboard(output_dir: Path) -> Path:
     .table-wrap { overflow:visible; } table { width:100%; border-collapse:collapse; table-layout:fixed; font-variant-numeric:tabular-nums; }
     .scrollable-table { max-height:251px; overflow-y:auto; } .scrollable-table th { position:sticky; top:0; background:var(--panel); z-index:1; }
     th, td { padding:8px 5px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; } th:first-child, th:nth-child(2), td:first-child, td:nth-child(2) { text-align:left; } th:nth-child(1) { width:13%; } th:nth-child(2) { width:39%; } th:nth-child(3) { width:17%; } th:nth-child(4) { width:17%; } th:nth-child(5) { width:14%; } td:nth-child(2) { white-space:normal; overflow-wrap:anywhere; } th { color:var(--text); font-size:12px; font-weight:600; } td:first-child { font-weight:650; }
+    .tight-table th:nth-child(1) { width:14%; } .tight-table th:nth-child(2) { width:35%; } .tight-table th:nth-child(3) { width:15%; } .tight-table th:nth-child(4) { width:14%; } .tight-table th:nth-child(5) { width:11%; } .tight-table th:nth-child(6) { width:11%; }
     .high-liquidity { color:#ccff00; }
     .empty { color:var(--text); padding:30px 0; }
     .snapshot-date { color:#F5F2E8; font-size:14px; font-weight:600; }
@@ -137,6 +148,8 @@ def write_dashboard(output_dir: Path) -> Path:
   <div id="liquid-sections" class="window-sections"></div>
   <div class="section-heading"><h2 id="nel-title">Non-Extended Leaders (NEL)</h2><button id="download-nel" class="download-btn" type="button">Export NEL</button></div>
   <div id="nel-sections" class="window-sections"></div>
+  <div class="section-heading"><h2 id="tight-title">Tight Non-Extended Leaders (T-NEL)</h2><button id="download-tight" class="download-btn" type="button">Export T-NEL</button></div>
+  <div id="tight-sections" class="window-sections"></div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
@@ -145,12 +158,15 @@ const dateSelect = document.getElementById('date');
 const thematicTitle = document.getElementById('thematic-title');
 const liquidTitle = document.getElementById('liquid-title');
 const nelTitle = document.getElementById('nel-title');
+const tightTitle = document.getElementById('tight-title');
 const leadershipSections = document.getElementById('leadership-sections');
 const liquidSections = document.getElementById('liquid-sections');
 const nelSections = document.getElementById('nel-sections');
+const tightSections = document.getElementById('tight-sections');
 const downloadButton = document.getElementById('download-image');
 const downloadLiquidButton = document.getElementById('download-ll');
 const downloadNelButton = document.getElementById('download-nel');
+const downloadTightButton = document.getElementById('download-tight');
 const flowMeta = { '1m': { label:'1 month', color:'#ff9900' }, '3m': { label:'3 months', color:'#00ffff' }, '6m': { label:'6 months', color:'#ff3366' } };
 const rankColors = ['#5C7CFA', '#E9C46A', '#E76F51', '#70C1B3', '#C77DFF'];
 
@@ -209,16 +225,28 @@ function renderNEL(snapshot) {
     nelTable.innerHTML = rows.length ? rows.map(row => { const dollarVolume = averageDollarVolume(row); const highLiquidity = Number(dollarVolume) > 450_000_000; const className = highLiquidity ? 'high-liquidity' : ''; const isLeaderTheme = top && row.industry === top[0]; const industryStyle = isLeaderTheme ? ` style="color:${flowMeta[frame].color};font-weight:650"` : ''; return `<tr><td class="${className}">${escapeHTML(row.name)}</td><td${industryStyle}>${escapeHTML(row.industry)}</td><td>${formatPct(row[performance])}</td><td class="${className}">${formatDollarVolume(dollarVolume)}</td><td>${formatNumber(row.atr_extension_from_50d)}×</td></tr>`; }).join('') : '<tr><td colspan="5" class="empty">No NEL leaders.</td></tr>';
   });
 }
+function renderTight(snapshot) {
+  const records = snapshot?.tight || [];
+  [['1m', 'Perf.1M', 'is_top_1m'], ['3m', 'Perf.3M', 'is_top_3m'], ['6m', 'Perf.6M', 'is_top_6m']].forEach(([frame, performance, flag]) => {
+    const table = document.getElementById(`tight-table-${frame}`);
+    const top = Object.entries(counts(snapshot, frame)).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]))[0];
+    const rows = records.filter(row => row[flag] === true || String(row[flag]).toLowerCase() === 'true').sort((a, b) => Number(a.rmv_15d) - Number(b.rmv_15d) || Number(b[performance]) - Number(a[performance]));
+    table.innerHTML = rows.length ? rows.map(row => { const dollarVolume = averageDollarVolume(row); const highLiquidity = Number(dollarVolume) > 450_000_000; const className = highLiquidity ? 'high-liquidity' : ''; const isLeaderTheme = top && row.industry === top[0]; const industryStyle = isLeaderTheme ? ` style="color:${flowMeta[frame].color};font-weight:650"` : ''; const rmvTitle = `${row.rmv_tight_days || 0} consecutive RMV-tight day${Number(row.rmv_tight_days) === 1 ? '' : 's'}`; return `<tr><td class="${className}">${escapeHTML(row.name)}</td><td${industryStyle}>${escapeHTML(row.industry)}</td><td>${formatPct(row[performance])}</td><td>${escapeHTML(row.coil_setup)}</td><td title="${rmvTitle}">${formatNumber(row.rmv_15d)}</td><td>${formatNumber(row.atr_extension_from_50d)}×</td></tr>`; }).join('') : '<tr><td colspan="6" class="empty">No tight NEL setups.</td></tr>';
+  });
+}
 function render() {
   const current = currentSnapshot(), index = Number(dateSelect.value), previous = history[index-1];
   liquidTitle.textContent = `Liquid Leaders (LL) - ${(current.liquid || []).length} Tickers`;
   nelTitle.textContent = `Non-Extended Leaders (NEL) - ${(current.nel || []).length} Tickers`;
+  tightTitle.textContent = `Tight Non-Extended Leaders (T-NEL) - ${(current.tight || []).length} Tickers`;
   leadershipSections.innerHTML = Object.entries(flowMeta).map(([frame, meta]) => `<section class="panel" data-frame="${frame}"><h2 style="color:${meta.color}">${meta.label} leadership</h2><div id="bars-${frame}" class="bars"></div><h2 style="margin-top:22px">Leadership over time</h2><svg id="trend-${frame}" role="img" aria-label="${meta.label} industry leader counts across available snapshots"></svg></section>`).join('');
   liquidSections.innerHTML = Object.entries(flowMeta).map(([frame, meta]) => `<section class="nel-window" data-frame="${frame}"><h3>${meta.label} LL</h3><div id="liquid-theme-${frame}" class="theme-card frame-${frame}"></div><div class="table-wrap scrollable-table"><table><thead><tr><th>Symbol</th><th>Industry</th><th>Performance</th><th>Avg $ Vol</th><th>Extension</th></tr></thead><tbody id="liquid-table-${frame}"></tbody></table></div></section>`).join('');
   nelSections.innerHTML = Object.entries(flowMeta).map(([frame, meta]) => `<section class="nel-window" data-frame="${frame}"><h3>${meta.label} NEL</h3><div id="theme-${frame}" class="theme-card frame-${frame}"></div><div class="table-wrap"><table><thead><tr><th>Symbol</th><th>Industry</th><th>Performance</th><th>Avg $ Vol</th><th>Extension</th></tr></thead><tbody id="nel-table-${frame}"></tbody></table></div></section>`).join('');
+  tightSections.innerHTML = Object.entries(flowMeta).map(([frame, meta]) => `<section class="nel-window" data-frame="${frame}"><h3>${meta.label} T-NEL</h3><div class="table-wrap"><table class="tight-table"><thead><tr><th>Symbol</th><th>Industry</th><th>Performance</th><th>Coil</th><th>RMV</th><th>Extension</th></tr></thead><tbody id="tight-table-${frame}"></tbody></table></div></section>`).join('');
   Object.keys(flowMeta).forEach(frame => { const rankedNames = renderBars(current, previous, frame, document.getElementById(`bars-${frame}`)); renderTrend(frame, document.getElementById(`trend-${frame}`), rankedNames); });
   renderLiquid(current);
   renderNEL(current);
+  renderTight(current);
 }
 function downloadSymbols(key, filePrefix) {
   const snapshot = currentSnapshot();
@@ -235,7 +263,7 @@ async function downloadPageImage() {
     const link = document.createElement('a'); link.download = `industry-leadership-${currentSnapshot().date}.png`; link.href = canvas.toDataURL('image/png'); link.click();
   } finally { downloadButton.disabled = false; downloadButton.textContent = 'Snapshot'; }
 }
-if (!history.length) { document.querySelector('main').innerHTML = '<p class="empty">Run the scanner once to create a momentum-leader snapshot.</p>'; } else { updateDates(); dateSelect.addEventListener('change', render); downloadButton.addEventListener('click', downloadPageImage); downloadLiquidButton.addEventListener('click', () => downloadSymbols('liquid', 'liquid_leaders')); downloadNelButton.addEventListener('click', () => downloadSymbols('nel', 'nel')); window.addEventListener('resize', render); render(); }
+if (!history.length) { document.querySelector('main').innerHTML = '<p class="empty">Run the scanner once to create a momentum-leader snapshot.</p>'; } else { updateDates(); dateSelect.addEventListener('change', render); downloadButton.addEventListener('click', downloadPageImage); downloadLiquidButton.addEventListener('click', () => downloadSymbols('liquid', 'liquid_leaders')); downloadNelButton.addEventListener('click', () => downloadSymbols('nel', 'nel')); downloadTightButton.addEventListener('click', () => downloadSymbols('tight', 'tight_nel')); window.addEventListener('resize', render); render(); }
 </script>
 </body>
 </html>'''

@@ -13,6 +13,7 @@ from typing import Iterable
 import pandas as pd
 
 from industry_flow_dashboard import write_dashboard
+from tight_nel import CoilSettings, find_tight_nel
 
 
 @dataclass(frozen=True)
@@ -148,6 +149,9 @@ def prepare_for_export(frame: pd.DataFrame) -> pd.DataFrame:
         "average_volume_10d_calc", "average_volume_30d_calc", "dollar_volume_30d", "average_dollar_volume_30d",
         "Perf.1M", "perf_1m_rank", "Perf.3M", "perf_3m_rank", "Perf.6M", "perf_6m_rank",
         "momentum_score", "atr_extension_from_50d", "is_top_1m", "is_top_3m", "is_top_6m",
+        "is_tight_nel", "coil_setup", "close_above_ema9", "close_spread_3d_pct", "close_spread_5d_pct",
+        "coil_range_5d_atr", "true_range_ratio_3d", "true_range_ratio_5d",
+        "current_day_range_pct_prior_atr", "rmv_15d", "rmv_tight_days",
     ]
     columns = [column for column in preferred if column in frame.columns]
     result = frame.loc[:, columns].copy()
@@ -155,16 +159,29 @@ def prepare_for_export(frame: pd.DataFrame) -> pd.DataFrame:
         "close": 2, "SMA30": 2, "SMA50": 2, "ADRP": 2, "ATRP": 2,
         "dollar_volume_30d": 0, "average_dollar_volume_30d": 0, "Perf.1M": 2, "Perf.3M": 2, "Perf.6M": 2,
         "momentum_score": 2, "atr_extension_from_50d": 2,
+        "close_spread_3d_pct": 2, "close_spread_5d_pct": 2, "coil_range_5d_atr": 2,
+        "true_range_ratio_3d": 2, "true_range_ratio_5d": 2,
+        "current_day_range_pct_prior_atr": 1, "rmv_15d": 1,
     })
 
 
-def write_outputs(universe: pd.DataFrame, leaders: pd.DataFrame, nel: pd.DataFrame, settings: Settings, output_dir: Path, snapshot_date: date | None = None) -> list[Path]:
+def write_outputs(
+    universe: pd.DataFrame,
+    leaders: pd.DataFrame,
+    nel: pd.DataFrame,
+    settings: Settings,
+    output_dir: Path,
+    snapshot_date: date | None = None,
+    tight_nel: pd.DataFrame | None = None,
+) -> list[Path]:
     """Write each review view as a plain CSV file."""
     output_dir.mkdir(parents=True, exist_ok=True)
     export_dir = output_dir / "EXPORT"
     export_dir.mkdir(exist_ok=True)
     stamp = (snapshot_date or datetime.now().date()).isoformat()
-    settings_frame = pd.DataFrame(list(asdict(settings).items()), columns=["setting", "value"])
+    setting_rows = list(asdict(settings).items())
+    setting_rows.extend((f"tight_{name}", value) for name, value in asdict(CoilSettings()).items())
+    settings_frame = pd.DataFrame(setting_rows, columns=["setting", "value"])
     outputs = {
         "non_extended_leaders": prepare_for_export(nel),
         "nel_symbols": nel.loc[:, ["name"]].rename(columns={"name": "symbol"}),
@@ -172,9 +189,12 @@ def write_outputs(universe: pd.DataFrame, leaders: pd.DataFrame, nel: pd.DataFra
         "filtered_universe": prepare_for_export(universe),
         "settings": settings_frame,
     }
+    if tight_nel is not None:
+        outputs["tight_non_extended_leaders"] = prepare_for_export(tight_nel)
+        outputs["tight_nel_symbols"] = tight_nel.loc[:, ["name"]].rename(columns={"name": "symbol"})
     paths = []
     for name, frame in outputs.items():
-        destination = export_dir if name == "nel_symbols" else output_dir
+        destination = export_dir if name in {"nel_symbols", "tight_nel_symbols"} else output_dir
         path = destination / f"{name}_{stamp}.csv"
         frame.to_csv(path, index=False)
         paths.append(path)
@@ -200,9 +220,16 @@ def main() -> None:
     settings = Settings(min_adr_pct=args.min_adr_pct, top_pct=args.top_pct, max_atr_extension=args.max_extension)
     raw = fetch_universe()
     universe, leaders, nel = calculate_nel(raw, settings)
-    paths = write_outputs(universe, leaders, nel, settings, args.output_dir, args.snapshot_date)
+    tight_nel, tightness_errors = find_tight_nel(nel)
+    paths = write_outputs(universe, leaders, nel, settings, args.output_dir, args.snapshot_date, tight_nel)
     paths.append(write_dashboard(args.output_dir))
-    print(f"Scanned: {len(raw):,} | eligible: {len(universe):,} | leaders: {len(leaders):,} | NEL: {len(nel):,}")
+    print(
+        f"Scanned: {len(raw):,} | eligible: {len(universe):,} | leaders: {len(leaders):,} "
+        f"| NEL: {len(nel):,} | Tight NEL: {len(tight_nel):,}"
+    )
+    if tightness_errors:
+        failed = ", ".join(sorted(tightness_errors))
+        print(f"Warning: tightness history unavailable for {len(tightness_errors)} symbol(s): {failed}")
     print("Saved:\n" + "\n".join(str(path) for path in paths))
 
 

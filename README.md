@@ -1,6 +1,6 @@
 # Non-Extended Leaders (NEL)
 
-This daily scanner recreates the mechanical portion of your workflow and writes plain CSV files. It does not create a focus list; chart structure and tightness remain a manual review step.
+This daily scanner recreates the mechanical portion of your workflow and writes plain CSV files. It also identifies objective Tight NEL candidates; final chart structure remains a manual review step.
 
 It keeps US common stocks listed on NASDAQ, NYSE, and AMEX that meet all of these filters:
 
@@ -10,6 +10,12 @@ It keeps US common stocks listed on NASDAQ, NYSE, and AMEX that meet all of thes
 - Industry does not contain “Biotech”
 
 It takes the top 5% of stocks by TradingView performance over each of 1 month, 3 months, and 6 months. It combines those three groups, removes duplicate tickers, and removes names more than 4 ATR% multiples above the 50-day SMA. The result is NEL, not a discretionary focus list.
+
+## Tight Non-Extended Leaders (T-NEL)
+
+After NEL is built, the scanner downloads three months of daily OHLC history for those symbols with `yfinance`. A stock qualifies as Tight NEL when it is above its 9-day EMA, its five-day high-low range is no more than 2.5 ATR, its current daily range is below the prior day's ATR, and either its three-day or five-day closes and true ranges satisfy the fast-coil contraction rules. RMV(15) is retained as a secondary ranking value; it is not the pass/fail rule.
+
+The daily run writes `tight_non_extended_leaders_YYYY-MM-DD.csv` and a symbol-only `outputs/EXPORT/tight_nel_symbols_YYYY-MM-DD.csv`. The dashboard displays separate 1-, 3-, and 6-month Tight NEL tables and can export the selected Tight NEL symbol list.
 
 ## Setup
 
@@ -27,7 +33,7 @@ python focus_list.py
 
 ## Automatic daily run (macOS)
 
-The installed scheduler checks once per minute and runs the scanner once after 4:10 PM New York time on regular US market days. It uses New York time for market-close and holiday checks, but stamps the output with the Pakistan date because the post-close list is for the next session. If the Mac wakes later that evening, it catches up automatically. It handles daylight-saving changes and writes each run to `logs/daily_scan_YYYY-MM-DD.log`.
+The installed scheduler checks once per minute and runs the scanner once after 4:10 PM New York time on regular US market days. It labels each output for the next US trading session, skipping weekends and market holidays. If the Mac wakes later that evening, it catches up automatically. It handles daylight-saving changes and writes each run to `logs/daily_scan_YYYY-MM-DD.log`.
 
 ## Premarket RVOL scanner
 
@@ -43,6 +49,8 @@ The CSV files appear in `outputs/`:
 
 - `Non-Extended Leaders`: leaders below the 4× ATR% extension threshold
 - `NEL Symbols`: a one-column ticker list for NEL
+- `Tight Non-Extended Leaders`: NEL passing the fast 3–5 day coil
+- `Tight NEL Symbols`: a one-column ticker list for Tight NEL
 - `Momentum Leaders`: names qualifying on momentum before the extension filter
 - `Filtered Universe`: every name passing the liquidity, ADR%, and industry filters
 - `Settings`: the exact run rules
@@ -57,7 +65,7 @@ python focus_list.py --top-pct 0.02
 
 The TradingView screener returns `ADRP` (ADR%) and `ATRP` (ATR%) as distinct percentage fields. ADR% is only the activity filter. ATR% is retained as a percentage and applies your extension formula exactly: `ATR Extension from 50d = (Price − SMA50) / (SMA50 × ATR%)`.
 
-The script intentionally leaves chart structure and tightness to your discretionary review. You create the focus list after reviewing NEL charts. A next iteration can add objective candidates such as distance from 10/21 EMA, ATR contraction, consecutive tight closes, relative volume, and a TradingView chart link.
+Tight NEL is an objective compression shortlist, not a replacement for reviewing chart structure, nearby resistance, earnings risk, and trade location.
 
 ## Industry leadership dashboard
 
