@@ -88,7 +88,7 @@
   <div id="nel-windows" class="windows"></div>
   <div class="section-heading"><h2>ETF Performance</h2></div>
   <div class="change-toggle" role="group" aria-label="ETF performance window"><button type="button" data-change-mode="intraday">Intraday</button><button type="button" class="active" data-change-mode="one_day">1 Day</button><button type="button" data-change-mode="one_week">1 Week</button><button type="button" data-change-mode="one_month">1 Month</button><button type="button" data-change-mode="three_months">3 Months</button><button type="button" data-change-mode="six_months">6 Months</button></div>
-  <div id="live-status" class="live-status">Loading live performance…</div>
+  <div id="live-status" class="live-status">Loading current performance…</div>
   <section class="change-card"><div id="change-chart"></div></section>
 </main>
 <dialog id="holdings-dialog"><div class="drawer-head"><h2 id="drawer-title">Holdings</h2><button id="drawer-close" class="close" aria-label="Close">×</button></div><div id="drawer-body" class="drawer-body"></div></dialog>
@@ -164,19 +164,27 @@ function renderChangeChart() {
 }
 async function refreshLivePerformance() {
   if(Number(dateSelect.value)!==data.snapshots.length-1){liveStatus.textContent=`Historical close · ${current()?.date||''}`;return;}
-  liveStatus.textContent='Loading live TradingView performance…';
+  liveStatus.textContent='Loading current TradingView performance…';
   const fallback=current()?.daily_changes||[], groups=new Map(fallback.map(row=>[row.symbol,row.group])), tickers=fallback.map(row=>row.symbol);
-  const query={markets:['america'],symbols:{},options:{lang:'en'},columns:['name','exchange','close','open','change','Perf.W','Perf.1M','Perf.3M','Perf.6M'],filter:[{left:'name',operation:'in_range',right:tickers}],range:[0,500],ignore_unknown_fields:false};
+  const query={markets:['america'],symbols:{},options:{lang:'en'},columns:['name','exchange','close','open','change','Perf.W','Perf.1M','Perf.3M','Perf.6M','premarket_close','premarket_open','premarket_change','postmarket_close','postmarket_change','update_mode'],filter:[{left:'name',operation:'in_range',right:tickers}],range:[0,500],ignore_unknown_fields:false};
   try {
     const response=await fetch('https://scanner.tradingview.com/america/scan',{method:'POST',body:JSON.stringify(query)});
     if(!response.ok)throw new Error(`TradingView returned ${response.status}`);
     const records=(await response.json()).data||[], bySymbol=new Map(fallback.map(row=>[row.symbol,{...row}]));
-    records.forEach(record=>{const [symbol,,close,open,oneDay,oneWeek,oneMonth,threeMonths,sixMonths]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''};row.intraday=Number(open)>0?100*(Number(close)/Number(open)-1):null;row.one_day=Number.isFinite(Number(oneDay))?Number(oneDay):null;row.one_week=Number.isFinite(Number(oneWeek))?Number(oneWeek):null;row.one_month=Number.isFinite(Number(oneMonth))?Number(oneMonth):null;row.three_months=Number.isFinite(Number(threeMonths))?Number(threeMonths):null;row.six_months=Number.isFinite(Number(sixMonths))?Number(sixMonths):null;bySymbol.set(symbol,row);});
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).reduce((result,part)=>({...result,[part.type]:part.value}),{}), minutes=Number(parts.hour)*60+Number(parts.minute), weekday=!['Sat','Sun'].includes(parts.weekday);
+    let session='latest regular close';
+    records.forEach(record=>{const [symbol,,regularClose,regularOpen,regularChange,oneWeek,oneMonth,threeMonths,sixMonths,preClose,preOpen,preChange,postClose,,updateMode]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''};let currentPrice=Number(regularClose),sessionOpen=Number(regularOpen),oneDay=Number(regularChange),adjustment=1;
+      if(weekday&&minutes>=240&&minutes<585&&Number(preClose)>0){currentPrice=Number(preClose);sessionOpen=Number(preOpen);oneDay=Number(preChange);adjustment=Number(regularClose)>0?currentPrice/Number(regularClose):1;session=minutes<570?'premarket':'premarket fallback until delayed regular data starts';}
+      else if(weekday&&minutes>=960&&minutes<1215&&Number(postClose)>0){currentPrice=Number(postClose);adjustment=Number(regularClose)>0?currentPrice/Number(regularClose):1;oneDay=100*((1+Number(regularChange)/100)*adjustment-1);sessionOpen=Number(regularOpen);session='postmarket';}
+      else if(weekday&&minutes>=585&&minutes<960){session='regular session';}
+      const adjust=value=>Number.isFinite(Number(value))?100*((1+Number(value)/100)*adjustment-1):null;
+      row.intraday=sessionOpen>0?100*(currentPrice/sessionOpen-1):null;row.one_day=Number.isFinite(oneDay)?oneDay:null;row.one_week=adjust(oneWeek);row.one_month=adjust(oneMonth);row.three_months=adjust(threeMonths);row.six_months=adjust(sixMonths);row.update_mode=updateMode;bySymbol.set(symbol,row);});
     liveChanges=[...bySymbol.values()];
-    liveStatus.textContent=`Live TradingView data · ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+    const delayed=records.some(record=>String(record.d[14]||'').includes('900'));
+    liveStatus.textContent=`TradingView ${session}${delayed?' · public feed delayed up to 15 min':''} · refreshed ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
     renderChangeChart();
   } catch(error) {
-    liveChanges=null; liveStatus.textContent=`Live data unavailable · showing ${current()?.date||''} close`; renderChangeChart();
+    liveChanges=null; liveStatus.textContent=`Current quote unavailable · showing ${current()?.date||''} close`; renderChangeChart();
   }
 }
 function combinedHoldings(etfs) {

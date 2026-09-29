@@ -129,6 +129,8 @@ class EtfStrengthTests(unittest.TestCase):
         self.assertNotIn('id="nel-title"', html)
         self.assertNotIn('id="tight-title"', html)
         self.assertEqual(html.count("data-change-mode="), 6)
+        self.assertNotIn("Live TradingView data", html)
+        self.assertIn("public feed delayed up to 15 min", html)
         sectors = load_universe(DATA_DIR / "sector_etfs.tsv")
         self.assertEqual(set(SECTOR_COLORS), set(sectors["Group"]))
         self.assertEqual(len(set(SECTOR_COLORS.values())), 11)
