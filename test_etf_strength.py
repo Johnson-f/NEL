@@ -115,7 +115,7 @@ class EtfStrengthTests(unittest.TestCase):
         self.assertEqual(sectors.loc["XLF", "Group"], "Financial Services")
 
     def test_sector_dashboard_omits_nel_sections_and_has_six_performance_modes(self):
-        from etf_dashboard import render_dashboard
+        from etf_dashboard import SECTOR_COLORS, render_dashboard
 
         payload = {
             "kind": "sectors",
@@ -129,6 +129,18 @@ class EtfStrengthTests(unittest.TestCase):
         self.assertNotIn('id="nel-title"', html)
         self.assertNotIn('id="tight-title"', html)
         self.assertEqual(html.count("data-change-mode="), 6)
+        sectors = load_universe(DATA_DIR / "sector_etfs.tsv")
+        self.assertEqual(set(SECTOR_COLORS), set(sectors["Group"]))
+        self.assertEqual(len(set(SECTOR_COLORS.values())), 11)
+
+        theme_payload = {**payload, "kind": "themes", "title": "Theme Leadership"}
+        theme_html = render_dashboard(theme_payload, "themes")
+        self.assertIn('id="nel-title"', theme_html)
+        self.assertNotIn('id="tight-title"', theme_html)
+
+    def test_dead_vice_ticker_is_not_in_theme_universe(self):
+        universe = load_universe(DATA_DIR / "theme_etfs.tsv")
+        self.assertNotIn("VICE", set(universe["Ticker"]))
 
     def test_non_stock_holdings_are_removed(self):
         funds = {"HACK", "BUG"}

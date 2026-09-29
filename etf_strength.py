@@ -341,6 +341,7 @@ def build_snapshots(
     universe: pd.DataFrame,
     session_dates: Iterable[date],
     top_n: int,
+    include_leadership: bool = True,
 ) -> list[dict]:
     snapshots = []
     metadata_by_ticker = universe.set_index("Ticker")
@@ -349,13 +350,18 @@ def build_snapshots(
         leadership = {}
         for label in WINDOWS:
             all_groups = rank_groups_for_session(
-                metric_histories, universe, session, f"perf_{label}", len(universe)
+                metric_histories,
+                universe,
+                session,
+                f"perf_{label}",
+                len(universe) if include_leadership else top_n,
             )
             windows[label] = all_groups[:top_n]
-            leadership[label] = [
-                {"group": group["group"], "score": group["score"]}
-                for group in all_groups
-            ]
+            if include_leadership:
+                leadership[label] = [
+                    {"group": group["group"], "score": group["score"]}
+                    for group in all_groups
+                ]
         date_key = pd.Timestamp(session)
         daily_changes = []
         for ticker, metadata in metadata_by_ticker.iterrows():
@@ -387,14 +393,10 @@ def build_snapshots(
                     "six_months": _clean_number(row.get("perf_6m")),
                 }
             )
-        snapshots.append(
-            {
-                "date": session.isoformat(),
-                "windows": windows,
-                "leadership": leadership,
-                "daily_changes": daily_changes,
-            }
-        )
+        snapshot = {"date": session.isoformat(), "windows": windows, "daily_changes": daily_changes}
+        if include_leadership:
+            snapshot["leadership"] = leadership
+        snapshots.append(snapshot)
     return snapshots
 
 
@@ -524,7 +526,13 @@ def build_universe_payload(
         "top_n": config.top_n,
         "generated_for": close_date.isoformat(),
         "holdings_as_of": holdings_as_of,
-        "snapshots": build_snapshots(metric_histories, universe, session_dates, config.top_n),
+        "snapshots": build_snapshots(
+            metric_histories,
+            universe,
+            session_dates,
+            config.top_n,
+            include_leadership=config.key == "sectors",
+        ),
         "holdings": {ticker: holdings.get(ticker, []) for ticker in universe["Ticker"]},
     }
 

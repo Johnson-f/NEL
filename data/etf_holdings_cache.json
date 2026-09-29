@@ -6644,58 +6644,6 @@
         "weight": 0.0176571
       }
     ],
-    "VICE": [
-      {
-        "name": "Brinker International Inc",
-        "symbol": "EAT",
-        "weight": 0.057659302
-      },
-      {
-        "name": "Victoria's Secret & Co",
-        "symbol": "VSXY",
-        "weight": 0.057425097
-      },
-      {
-        "name": "NetEase Inc ADR",
-        "symbol": "NTES",
-        "weight": 0.0529843
-      },
-      {
-        "name": "BJ's Restaurants Inc",
-        "symbol": "BJRI",
-        "weight": 0.051078
-      },
-      {
-        "name": "Snail Inc Class A common stock",
-        "symbol": "SNAL",
-        "weight": 0.047319997
-      },
-      {
-        "name": "Monster Beverage Corp",
-        "symbol": "MNST",
-        "weight": 0.0468084
-      },
-      {
-        "name": "NVIDIA Corp",
-        "symbol": "NVDA",
-        "weight": 0.0460404
-      },
-      {
-        "name": "Coca-Cola Co",
-        "symbol": "KO",
-        "weight": 0.0449027
-      },
-      {
-        "name": "Philip Morris International Inc",
-        "symbol": "PM",
-        "weight": 0.0444323
-      },
-      {
-        "name": "Altria Group Inc",
-        "symbol": "MO",
-        "weight": 0.0442105
-      }
-    ],
     "WCLD": [
       {
         "name": "Okta Inc Class A",

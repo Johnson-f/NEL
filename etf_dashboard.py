@@ -7,6 +7,20 @@ from pathlib import Path
 
 from etf_strength import OUTPUT_DIR, PROJECT_DIR, UNIVERSES
 
+SECTOR_COLORS = {
+    "Materials": "#E9C46A",
+    "Communication Services": "#5C7CFA",
+    "Energy": "#E76F51",
+    "Financial Services": "#C77DFF",
+    "Industrial": "#70C1B3",
+    "Technology": "#4CC9F0",
+    "Consumer Staples": "#F4A261",
+    "Real Estate": "#D77AAB",
+    "Utilities": "#80ED99",
+    "Health Care": "#FF6B6B",
+    "Consumer Discretionary": "#B8DE6F",
+}
+
 
 def render_dashboard(payload: dict, active_key: str) -> str:
     data = json.dumps(payload, separators=(",", ":"))
@@ -14,16 +28,14 @@ def render_dashboard(payload: dict, active_key: str) -> str:
     leader_label = "Theme Leaders" if active_key == "themes" else "Sector Leaders"
     filtered_sections = r'''
   <div class="section-heading"><h2 id="nel-title">Non-Extended ETF Leaders (NEL)</h2><button id="export-nel" class="button">Export NEL</button></div>
-  <div id="nel-windows" class="windows"></div>
-  <div class="section-heading"><h2 id="tight-title">Tight Non-Extended ETF Leaders (T-NEL)</h2><button id="export-tight" class="button">Export T-NEL</button></div>
-  <div id="tight-windows" class="windows"></div>''' if active_key == "themes" else ""
+  <div id="nel-windows" class="windows"></div>''' if active_key == "themes" else ""
     return r'''<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>__TITLE__ | Liquid Leadership</title>
-  <meta name="description" content="Track leading market groups, non-extended ETFs, tight coils, and underlying stock holdings.">
+  <meta name="description" content="Track leading market groups, non-extended ETFs, live performance, and underlying stock holdings.">
   <link rel="icon" type="image/png" href="assets/nel-favicon.png">
   <style>
     :root { color-scheme:dark; --bg:#141414; --panel:#2A2A2A; --track:#1b1b1b; --line:#454545; --text:#F5F2E8; --orange:#ff9900; --cyan:#00ffff; --pink:#ff3366; }
@@ -56,7 +68,6 @@ def render_dashboard(payload: dict, active_key: str) -> str:
     td:first-child { font-weight:700; }
     .leaders-table th:nth-child(1) { width:8%; } .leaders-table th:nth-child(2) { width:31%; } .leaders-table th:nth-child(3) { width:15%; } .leaders-table th:nth-child(4) { width:17%; } .leaders-table th:nth-child(5) { width:14%; } .leaders-table th:nth-child(6) { width:15%; }
     .etf-table th:nth-child(1) { width:14%; } .etf-table th:nth-child(2) { width:29%; } .etf-table th:nth-child(3) { width:14%; } .etf-table th:nth-child(4) { width:11%; } .etf-table th:nth-child(5) { width:18%; } .etf-table th:nth-child(6) { width:14%; }
-    .tight-table th:nth-child(1) { width:13%; } .tight-table th:nth-child(2) { width:27%; } .tight-table th:nth-child(3) { width:13%; } .tight-table th:nth-child(4) { width:13%; } .tight-table th:nth-child(5) { width:11%; } .tight-table th:nth-child(6) { width:12%; } .tight-table th:nth-child(7) { width:11%; }
     td:nth-child(2) { white-space:normal; overflow-wrap:anywhere; }
     .clickable { cursor:pointer; } .clickable:hover { background:#343434; }
     .ticker-button,.group-button { all:unset; color:inherit; cursor:pointer; font-weight:700; }
@@ -65,7 +76,8 @@ def render_dashboard(payload: dict, active_key: str) -> str:
     .change-toggle { display:flex; justify-content:center; flex-wrap:wrap; gap:6px; margin:-4px 0 13px; }
     .change-toggle button { min-width:112px; height:34px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--panel); color:var(--text); cursor:pointer; font:650 12px/1 system-ui; }
     .change-toggle button.active { background:var(--text); color:var(--bg); }
-    .change-card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px 18px; }
+    .change-card { width:min(100%,980px); margin:0 auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px 18px; }
+    .live-status { min-height:18px; margin:-7px 0 10px; text-align:center; font-size:11px; opacity:.72; }
     .change-axis,.change-row { display:grid; grid-template-columns:minmax(155px,220px) minmax(0,1fr) 68px; align-items:center; column-gap:12px; }
     .change-axis { position:sticky; top:0; z-index:2; padding:0 0 7px; background:var(--panel); color:var(--text); font-size:10px; opacity:.75; }
     .axis-track { display:flex; justify-content:space-between; }
@@ -105,6 +117,7 @@ def render_dashboard(payload: dict, active_key: str) -> str:
 __FILTERED_SECTIONS__
   <div class="section-heading"><h2>ETF Performance</h2></div>
   <div class="change-toggle" role="group" aria-label="ETF performance window"><button type="button" data-change-mode="intraday">Intraday</button><button type="button" class="active" data-change-mode="one_day">1 Day</button><button type="button" data-change-mode="one_week">1 Week</button><button type="button" data-change-mode="one_month">1 Month</button><button type="button" data-change-mode="three_months">3 Months</button><button type="button" data-change-mode="six_months">6 Months</button></div>
+  <div id="live-status" class="live-status">Loading live performance…</div>
   <section class="change-card"><div id="change-chart"></div></section>
 </main>
 <dialog id="holdings-dialog"><div class="drawer-head"><h2 id="drawer-title">Holdings</h2><button id="drawer-close" class="close" aria-label="Close">×</button></div><div id="drawer-body" class="drawer-body"></div></dialog>
@@ -112,12 +125,12 @@ __FILTERED_SECTIONS__
 <script>
 const data = __DATA__;
 const frames = { '1m':'1 month', '3m':'3 months', '6m':'6 months' };
-const rankColors = ['#5C7CFA','#E9C46A','#E76F51','#70C1B3','#C77DFF'];
+const sectorColors = __SECTOR_COLORS__;
 const dateSelect = document.getElementById('date');
 const leaderWindows = document.getElementById('leader-windows');
 const nelWindows = document.getElementById('nel-windows');
-const tightWindows = document.getElementById('tight-windows');
 const changeChart = document.getElementById('change-chart');
+const liveStatus = document.getElementById('live-status');
 const dialog = document.getElementById('holdings-dialog');
 const drawerTitle = document.getElementById('drawer-title');
 const drawerBody = document.getElementById('drawer-body');
@@ -132,30 +145,26 @@ function windowGroups(frame) { return current()?.windows?.[frame] || []; }
 function members(frame) { return windowGroups(frame).flatMap(group => group.members); }
 function uniqueMembers(filter) { const map=new Map(); Object.keys(frames).flatMap(frame => members(frame).filter(filter)).forEach(row => map.set(row.symbol,row)); return [...map.values()]; }
 function isNEL(row) { return Number.isFinite(Number(row.extension)) && Number(row.extension) <= 4; }
-function isTight(row) { return isNEL(row) && row.is_tight === true; }
 let changeMode = 'one_day';
+let liveChanges = null;
 
 function renderLeaders(frame) {
   const rows=windowGroups(frame);
-  const body=rows.map((group,index)=>`<tr class="clickable group-row" data-frame="${frame}" data-group="${esc(group.group)}"><td>${group.rank}</td><td><button class="group-button"${index<5?` style="color:${rankColors[index]}"`:''}>${esc(group.group)}</button></td><td>${num(group.score)}</td><td>${pct(group.median_performance)}</td><td>${esc(group.leader_etf)}</td><td>${group.confirmation}/${group.member_count}</td></tr>`).join('');
-  return `<section class="card" data-frame="${frame}"><h3>${frames[frame]} top ${data.top_n}</h3><div class="table-wrap"><table class="leaders-table"><thead><tr><th>#</th><th>Group</th><th>Strength</th><th>Median</th><th>Leader</th><th>Confirmed</th></tr></thead><tbody>${body||'<tr><td colspan="6" class="empty">No ranking data.</td></tr>'}</tbody></table></div><h3 class="trend-title">Leadership over time</h3><svg id="trend-${frame}" class="trend-chart" role="img" aria-label="${frames[frame]} leadership strength over time"></svg></section>`;
+  const body=rows.map(group=>{const color=data.kind==='sectors'?sectorColors[group.group]:null;return `<tr class="clickable group-row" data-frame="${frame}" data-group="${esc(group.group)}"><td>${group.rank}</td><td><button class="group-button"${color?` style="color:${color}"`:''}>${esc(group.group)}</button></td><td>${num(group.score)}</td><td>${pct(group.median_performance)}</td><td>${esc(group.leader_etf)}</td><td>${group.confirmation}/${group.member_count}</td></tr>`;}).join('');
+  const trend=data.kind==='sectors'?`<h3 class="trend-title">Leadership over time</h3><svg id="trend-${frame}" class="trend-chart" role="img" aria-label="${frames[frame]} leadership strength over time"></svg>`:'';
+  return `<section class="card" data-frame="${frame}"><h3>${frames[frame]} top ${data.top_n}</h3><div class="table-wrap"><table class="leaders-table"><thead><tr><th>#</th><th>Group</th><th>Strength</th><th>Median</th><th>Leader</th><th>Confirmed</th></tr></thead><tbody>${body||'<tr><td colspan="6" class="empty">No ranking data.</td></tr>'}</tbody></table></div>${trend}</section>`;
 }
-function renderETFTable(frame, tight=false) {
-  const rows=members(frame).filter(tight?isTight:isNEL).sort((a,b)=>Number(b.performance)-Number(a.performance));
-  const body=rows.map(row=>tight
-    ? `<tr class="clickable etf-row" data-frame="${frame}" data-symbol="${esc(row.symbol)}"><td><button class="ticker-button">${esc(row.symbol)}</button></td><td>${esc(row.group)}</td><td>${pct(row.performance)}</td><td>${esc(row.coil_setup)}</td><td>${num(row.rmv_15d)}</td><td>${pct(row.adrp)}</td><td>${num(row.extension)}×</td></tr>`
-    : `<tr class="clickable etf-row" data-frame="${frame}" data-symbol="${esc(row.symbol)}"><td><button class="ticker-button">${esc(row.symbol)}</button></td><td>${esc(row.group)}</td><td>${pct(row.performance)}</td><td>${pct(row.adrp)}</td><td>${dollars(row.average_dollar_volume_30d)}</td><td>${num(row.extension)}×</td></tr>`).join('');
-  const head=tight?'<tr><th>ETF</th><th>Group</th><th>Performance</th><th>Coil</th><th>RMV</th><th>ADR</th><th>Extension</th></tr>':'<tr><th>ETF</th><th>Group</th><th>Performance</th><th>ADR</th><th>Avg $ Vol</th><th>Extension</th></tr>';
-  return `<section class="card" data-frame="${frame}"><h3>${frames[frame]} ${tight?'T-NEL':'NEL'}</h3><div class="table-wrap"><table class="${tight?'tight-table':'etf-table'}"><thead>${head}</thead><tbody>${body||`<tr><td colspan="${tight?7:6}" class="empty">No qualifying ETFs.</td></tr>`}</tbody></table></div></section>`;
+function renderETFTable(frame) {
+  const rows=members(frame).filter(isNEL).sort((a,b)=>Number(b.performance)-Number(a.performance));
+  const body=rows.map(row=>`<tr class="clickable etf-row" data-frame="${frame}" data-symbol="${esc(row.symbol)}"><td><button class="ticker-button">${esc(row.symbol)}</button></td><td>${esc(row.group)}</td><td>${pct(row.performance)}</td><td>${pct(row.adrp)}</td><td>${dollars(row.average_dollar_volume_30d)}</td><td>${num(row.extension)}×</td></tr>`).join('');
+  return `<section class="card" data-frame="${frame}"><h3>${frames[frame]} NEL</h3><div class="table-wrap"><table class="etf-table"><thead><tr><th>ETF</th><th>Group</th><th>Performance</th><th>ADR</th><th>Avg $ Vol</th><th>Extension</th></tr></thead><tbody>${body||'<tr><td colspan="6" class="empty">No qualifying ETFs.</td></tr>'}</tbody></table></div></section>`;
 }
 function render() {
   leaderWindows.innerHTML=Object.keys(frames).map(renderLeaders).join('');
-  if(nelWindows) nelWindows.innerHTML=Object.keys(frames).map(frame=>renderETFTable(frame,false)).join('');
-  if(tightWindows) tightWindows.innerHTML=Object.keys(frames).map(frame=>renderETFTable(frame,true)).join('');
+  if(nelWindows) nelWindows.innerHTML=Object.keys(frames).map(renderETFTable).join('');
   document.getElementById('leaders-title').textContent=`__LEADER_LABEL__ - ${new Set(Object.keys(frames).flatMap(frame=>windowGroups(frame).map(g=>g.group))).size} Groups`;
   if(document.getElementById('nel-title')) document.getElementById('nel-title').textContent=`Non-Extended ETF Leaders (NEL) - ${uniqueMembers(isNEL).length} Tickers`;
-  if(document.getElementById('tight-title')) document.getElementById('tight-title').textContent=`Tight Non-Extended ETF Leaders (T-NEL) - ${uniqueMembers(isTight).length} Tickers`;
-  Object.keys(frames).forEach(renderLeadershipTrend);
+  if(data.kind==='sectors') Object.keys(frames).forEach(renderLeadershipTrend);
   renderChangeChart();
 }
 function renderLeadershipTrend(frame) {
@@ -170,16 +179,34 @@ function renderLeadershipTrend(frame) {
   let markup=`<line x1="${left}" y1="${height-bottom}" x2="${width-right}" y2="${height-bottom}" stroke="#454545"/><line x1="${left}" y1="${top}" x2="${left}" y2="${height-bottom}" stroke="#454545"/>`;
   [0,25,50,75,100].forEach(value=>{markup+=`<line x1="${left}" y1="${y(value)}" x2="${width-right}" y2="${y(value)}" stroke="#3a3a3a"/><text x="${left-6}" y="${y(value)+4}" text-anchor="end" font-size="10" fill="#F5F2E8">${value}</text>`;});
   const tickStep=Math.max(1,Math.ceil((active.length-1)/4)); active.forEach((snapshot,index)=>{if(index%tickStep===0||index===active.length-1)markup+=`<text x="${x(index)}" y="${height-10}" text-anchor="middle" font-size="10" fill="#F5F2E8">${snapshot.date.slice(5)}</text>`;});
-  names.forEach((name,colorIndex)=>{const points=active.map((snapshot,index)=>{const value=score(snapshot,name);return value==null?null:`${x(index)},${y(value)}`;}).filter(Boolean).join(' ');if(points)markup+=`<polyline points="${points}" fill="none" stroke="${rankColors[colorIndex]}" stroke-width="2.2"/>`;active.forEach((snapshot,index)=>{const value=score(snapshot,name);if(value!=null)markup+=`<circle cx="${x(index)}" cy="${y(value)}" r="2.2" fill="${rankColors[colorIndex]}"><title>${esc(name)}: ${Number(value).toFixed(1)} on ${snapshot.date}</title></circle>`;});});
+  names.forEach(name=>{const color=sectorColors[name]||'#F5F2E8';const points=active.map((snapshot,index)=>{const value=score(snapshot,name);return value==null?null:`${x(index)},${y(value)}`;}).filter(Boolean).join(' ');if(points)markup+=`<polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.2"/>`;active.forEach((snapshot,index)=>{const value=score(snapshot,name);if(value!=null)markup+=`<circle cx="${x(index)}" cy="${y(value)}" r="2.2" fill="${color}"><title>${esc(name)}: ${Number(value).toFixed(1)} on ${snapshot.date}</title></circle>`;});});
   svg.setAttribute('viewBox',`0 0 ${width} ${height}`); svg.innerHTML=markup;
 }
 function renderChangeChart() {
   const hasValue=row=>row[changeMode]!==null&&row[changeMode]!==''&&Number.isFinite(Number(row[changeMode]));
-  const rows=[...(current()?.daily_changes||[])].sort((a,b)=>Number(hasValue(b))-Number(hasValue(a))||(hasValue(a)&&hasValue(b)?Number(b[changeMode])-Number(a[changeMode]):a.symbol.localeCompare(b.symbol)));
+  const isLatest=Number(dateSelect.value)===data.snapshots.length-1;
+  const rows=[...((isLatest&&liveChanges)||current()?.daily_changes||[])].sort((a,b)=>Number(hasValue(b))-Number(hasValue(a))||(hasValue(a)&&hasValue(b)?Number(b[changeMode])-Number(a[changeMode]):a.symbol.localeCompare(b.symbol)));
   const maximum=Math.max(1,...rows.filter(hasValue).map(row=>Math.abs(Number(row[changeMode]))));
   const axis=Math.ceil(maximum*10)/10;
   const body=rows.map(row=>{ const available=hasValue(row),value=available?Number(row[changeMode]):0,width=available?Math.min(50,Math.abs(value)/axis*50):0; return `<div class="change-row"><div class="change-label" title="${esc(row.symbol)} · ${esc(row.group)}"><strong>${esc(row.symbol)}</strong><span>${esc(row.group)}</span></div><div class="change-track">${available?`<span class="change-bar ${value>=0?'positive':'negative'}" style="width:${width}%"></span>`:''}</div><div class="change-value">${available?`${value>=0?'+':''}${value.toFixed(2)}%`:'—'}</div></div>`; }).join('');
   changeChart.innerHTML=`<div class="change-axis"><span></span><div class="axis-track"><span>−${axis.toFixed(1)}%</span><span>0%</span><span>+${axis.toFixed(1)}%</span></div><span></span></div>${body||'<p class="empty">No performance data is available.</p>'}`;
+}
+async function refreshLivePerformance() {
+  if(Number(dateSelect.value)!==data.snapshots.length-1){liveStatus.textContent=`Historical close · ${current()?.date||''}`;return;}
+  liveStatus.textContent='Loading live TradingView performance…';
+  const fallback=current()?.daily_changes||[], groups=new Map(fallback.map(row=>[row.symbol,row.group])), tickers=fallback.map(row=>row.symbol);
+  const query={markets:['america'],symbols:{},options:{lang:'en'},columns:['name','exchange','close','open','change','Perf.W','Perf.1M','Perf.3M','Perf.6M'],filter:[{left:'name',operation:'in_range',right:tickers}],range:[0,500],ignore_unknown_fields:false};
+  try {
+    const response=await fetch('https://scanner.tradingview.com/america/scan',{method:'POST',body:JSON.stringify(query)});
+    if(!response.ok)throw new Error(`TradingView returned ${response.status}`);
+    const records=(await response.json()).data||[], bySymbol=new Map(fallback.map(row=>[row.symbol,{...row}]));
+    records.forEach(record=>{const [symbol,,close,open,oneDay,oneWeek,oneMonth,threeMonths,sixMonths]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''};row.intraday=Number(open)>0?100*(Number(close)/Number(open)-1):null;row.one_day=Number.isFinite(Number(oneDay))?Number(oneDay):null;row.one_week=Number.isFinite(Number(oneWeek))?Number(oneWeek):null;row.one_month=Number.isFinite(Number(oneMonth))?Number(oneMonth):null;row.three_months=Number.isFinite(Number(threeMonths))?Number(threeMonths):null;row.six_months=Number.isFinite(Number(sixMonths))?Number(sixMonths):null;bySymbol.set(symbol,row);});
+    liveChanges=[...bySymbol.values()];
+    liveStatus.textContent=`Live TradingView data · ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+    renderChangeChart();
+  } catch(error) {
+    liveChanges=null; liveStatus.textContent=`Live data unavailable · showing ${current()?.date||''} close`; renderChangeChart();
+  }
 }
 function combinedHoldings(etfs) {
   const map=new Map(), denominator=Math.max(1,etfs.length);
@@ -205,16 +232,15 @@ document.addEventListener('click',event=>{
 });
 function exportSymbols(filter,prefix){ const rows=uniqueMembers(filter),csv=['symbol',...rows.map(row=>`"${row.symbol.replaceAll('"','""')}"`)].join('\n')+'\n'; const blob=new Blob([csv],{type:'text/csv'}),link=document.createElement('a'); link.download=`${prefix}_${current().date}.csv`; link.href=URL.createObjectURL(blob); link.click(); URL.revokeObjectURL(link.href); }
 async function snapshot(){ const button=document.getElementById('snapshot'); if(typeof html2canvas!=='function'){alert('Snapshot exporter could not load.');return;} button.disabled=true; try{const canvas=await html2canvas(document.querySelector('main'),{backgroundColor:'#141414',scale:2,useCORS:true});const link=document.createElement('a');link.download=`${data.kind}-leadership-${current().date}.png`;link.href=canvas.toDataURL('image/png');link.click();}finally{button.disabled=false;} }
-dateSelect.innerHTML=data.snapshots.map((snapshot,index)=>`<option value="${index}">${snapshot.date}</option>`).join(''); dateSelect.value=Math.max(0,data.snapshots.length-1); dateSelect.addEventListener('change',render);
+dateSelect.innerHTML=data.snapshots.map((snapshot,index)=>`<option value="${index}">${snapshot.date}</option>`).join(''); dateSelect.value=Math.max(0,data.snapshots.length-1); dateSelect.addEventListener('change',()=>{render();refreshLivePerformance();});
 document.querySelector('.change-toggle').addEventListener('click',event=>{ const button=event.target.closest('[data-change-mode]'); if(!button)return; changeMode=button.dataset.changeMode; document.querySelectorAll('[data-change-mode]').forEach(item=>item.classList.toggle('active',item===button)); renderChangeChart(); });
 document.getElementById('drawer-close').addEventListener('click',()=>dialog.close()); dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
 document.getElementById('export-leaders').addEventListener('click',()=>exportSymbols(()=>true,`${data.kind}_leaders`));
 document.getElementById('export-nel')?.addEventListener('click',()=>exportSymbols(isNEL,`${data.kind}_nel`));
-document.getElementById('export-tight')?.addEventListener('click',()=>exportSymbols(isTight,`${data.kind}_tight_nel`));
-document.getElementById('snapshot').addEventListener('click',snapshot); render();
+document.getElementById('snapshot').addEventListener('click',snapshot); render(); refreshLivePerformance(); setInterval(refreshLivePerformance,60000);
 </script>
 </body>
-</html>'''.replace("__TITLE__", title).replace("__LEADER_LABEL__", leader_label).replace("__FILTERED_SECTIONS__", filtered_sections).replace("__DATA__", data)
+</html>'''.replace("__TITLE__", title).replace("__LEADER_LABEL__", leader_label).replace("__FILTERED_SECTIONS__", filtered_sections).replace("__SECTOR_COLORS__", json.dumps(SECTOR_COLORS, separators=(",", ":"))).replace("__DATA__", data)
 
 
 def write_etf_dashboards() -> list[Path]:
