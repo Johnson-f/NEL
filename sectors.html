@@ -43,6 +43,7 @@
     .ticker-button:hover,.group-button:hover { text-decoration:underline; }
     .muted { opacity:.72; } .empty { padding:28px 6px; text-align:left; }
     .change-toggle { display:flex; justify-content:center; flex-wrap:wrap; gap:6px; margin:-4px 0 13px; }
+    .change-scope { margin-bottom:9px; }
     .change-toggle button { min-width:112px; height:34px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--panel); color:var(--text); cursor:pointer; font:650 12px/1 system-ui; }
     .change-toggle button.active { background:var(--text); color:var(--bg); }
     .change-card { width:min(100%,980px); margin:0 auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px 18px; }
@@ -86,7 +87,8 @@
   <div id="leader-windows" class="windows"></div>
 
   <div class="section-heading"><h2>ETF Performance</h2></div>
-  <div class="change-toggle" role="group" aria-label="ETF performance window"><button type="button" data-change-mode="intraday">Intraday</button><button type="button" class="active" data-change-mode="one_day">1 Day</button><button type="button" data-change-mode="one_week">1 Week</button><button type="button" data-change-mode="one_month">1 Month</button><button type="button" data-change-mode="three_months">3 Months</button><button type="button" data-change-mode="six_months">6 Months</button></div>
+  <div id="change-scope" class="change-toggle change-scope" role="group" aria-label="Performance chart view"></div>
+  <div class="change-toggle" role="group" aria-label="ETF performance window"><button type="button" data-change-mode="premarket">Premarket</button><button type="button" data-change-mode="postmarket">After hours</button><button type="button" data-change-mode="intraday">Intraday</button><button type="button" class="active" data-change-mode="one_day">1 Day</button><button type="button" data-change-mode="one_week">1 Week</button><button type="button" data-change-mode="one_month">1 Month</button><button type="button" data-change-mode="three_months">3 Months</button><button type="button" data-change-mode="six_months">6 Months</button></div>
   <div id="live-status" class="live-status">Loading current performance…</div>
   <section class="change-card"><div id="change-chart"></div></section>
 </main>
@@ -100,6 +102,7 @@ const dateSelect = document.getElementById('date');
 const leaderWindows = document.getElementById('leader-windows');
 const nelWindows = document.getElementById('nel-windows');
 const changeChart = document.getElementById('change-chart');
+const changeScope = document.getElementById('change-scope');
 const liveStatus = document.getElementById('live-status');
 const dialog = document.getElementById('holdings-dialog');
 const drawerTitle = document.getElementById('drawer-title');
@@ -116,6 +119,7 @@ function members(frame) { return windowGroups(frame).flatMap(group => group.memb
 function uniqueMembers(filter) { const map=new Map(); Object.keys(frames).flatMap(frame => members(frame).filter(filter)).forEach(row => map.set(row.symbol,row)); return [...map.values()]; }
 function isNEL(row) { return Number.isFinite(Number(row.extension)) && Number(row.extension) <= 4; }
 let changeMode = 'one_day';
+let changeView = data.kind === 'themes' ? 'groups' : 'etfs';
 let liveChanges = null;
 
 function renderLeaders(frame) {
@@ -155,28 +159,32 @@ function renderLeadershipTrend(frame) {
 function renderChangeChart() {
   const hasValue=row=>row[changeMode]!==null&&row[changeMode]!==''&&Number.isFinite(Number(row[changeMode]));
   const isLatest=Number(dateSelect.value)===data.snapshots.length-1;
-  const rows=[...((isLatest&&liveChanges)||current()?.daily_changes||[])].sort((a,b)=>Number(hasValue(b))-Number(hasValue(a))||(hasValue(a)&&hasValue(b)?Number(b[changeMode])-Number(a[changeMode]):a.symbol.localeCompare(b.symbol)));
-  const maximum=Math.max(1,...rows.filter(hasValue).map(row=>Math.abs(Number(row[changeMode]))));
-  const axis=Math.ceil(maximum*10)/10;
-  const body=rows.map(row=>{ const available=hasValue(row),value=available?Number(row[changeMode]):0,width=available?Math.min(50,Math.abs(value)/axis*50):0; return `<div class="change-row"><div class="change-label" title="${esc(row.symbol)} · ${esc(row.group)}"><strong>${esc(row.symbol)}</strong><span>${esc(row.group)}</span></div><div class="change-track">${available?`<span class="change-bar ${value>=0?'positive':'negative'}" style="width:${width}%"></span>`:''}</div><div class="change-value">${available?`${value>=0?'+':''}${value.toFixed(2)}%`:'—'}</div></div>`; }).join('');
-  changeChart.innerHTML=`<div class="change-axis"><span></span><div class="axis-track"><span>−${axis.toFixed(1)}%</span><span>0%</span><span>+${axis.toFixed(1)}%</span></div><span></span></div>${body||'<p class="empty">No performance data is available.</p>'}`;
+  const source=[...((isLatest&&liveChanges)||current()?.daily_changes||[])];
+  const rows=changeView==='groups' ? groupPerformanceRows(source,hasValue) : source;
+  rows.sort((a,b)=>Number(hasValue(b))-Number(hasValue(a))||(hasValue(a)&&hasValue(b)?Number(b[changeMode])-Number(a[changeMode]):a.symbol.localeCompare(b.symbol)));
+  const positiveAxis=Math.max(.1,...rows.filter(row=>hasValue(row)&&Number(row[changeMode])>=0).map(row=>Number(row[changeMode]))), negativeAxis=Math.max(.1,...rows.filter(row=>hasValue(row)&&Number(row[changeMode])<0).map(row=>Math.abs(Number(row[changeMode]))));
+  const body=rows.map(row=>{ const available=hasValue(row),value=available?Number(row[changeMode]):0,axis=value>=0?positiveAxis:negativeAxis,width=available?Math.min(50,Math.abs(value)/axis*50):0; return `<div class="change-row"><div class="change-label" title="${esc(row.symbol)}${row.group?` · ${esc(row.group)}`:''}"><strong>${esc(row.symbol)}</strong>${row.group?`<span>${esc(row.group)}</span>`:''}</div><div class="change-track">${available?`<span class="change-bar ${value>=0?'positive':'negative'}" style="width:${width}%"></span>`:''}</div><div class="change-value">${available?`${value>=0?'+':''}${value.toFixed(2)}%`:'—'}</div></div>`; }).join('');
+  changeChart.innerHTML=`<div class="change-axis"><span></span><div class="axis-track"><span>−${negativeAxis.toFixed(1)}%</span><span>0%</span><span>+${positiveAxis.toFixed(1)}%</span></div><span></span></div>${body||'<p class="empty">No performance data is available.</p>'}`;
+}
+function groupPerformanceRows(source,hasValue) {
+  const groups=new Map();
+  source.forEach(row=>{if(!row.group)return;const values=groups.get(row.group)||[];if(hasValue(row))values.push(Number(row[changeMode]));groups.set(row.group,values);});
+  return [...groups].map(([group,values])=>{const ordered=[...values].sort((a,b)=>a-b),middle=Math.floor(ordered.length/2),median=ordered.length?(ordered.length%2?ordered[middle]:(ordered[middle-1]+ordered[middle])/2):null;return {symbol:group,group:'', [changeMode]:median};});
 }
 async function refreshLivePerformance() {
   if(Number(dateSelect.value)!==data.snapshots.length-1){liveStatus.textContent=`Historical close · ${current()?.date||''}`;return;}
   liveStatus.textContent='Loading current TradingView performance…';
   const fallback=current()?.daily_changes||[], groups=new Map(fallback.map(row=>[row.symbol,row.group])), tickers=fallback.map(row=>row.symbol);
-  // The performance table deliberately uses regular-session fields only.  Do
-  // not mix premarket or after-hours moves into the daily return series.
-  const query={markets:['america'],symbols:{},options:{lang:'en'},columns:['name','exchange','close','open','change','Perf.W','Perf.1M','Perf.3M','Perf.6M','update_mode'],filter:[{left:'name',operation:'in_range',right:tickers}],range:[0,500],ignore_unknown_fields:false};
+  const query={markets:['america'],symbols:{},options:{lang:'en'},columns:['name','exchange','close','open','change','Perf.W','Perf.1M','Perf.3M','Perf.6M','premarket_change','postmarket_change','update_mode'],filter:[{left:'name',operation:'in_range',right:tickers}],range:[0,500],ignore_unknown_fields:false};
   try {
     const response=await fetch('https://scanner.tradingview.com/america/scan',{method:'POST',body:JSON.stringify(query)});
     if(!response.ok)throw new Error(`TradingView returned ${response.status}`);
     const records=(await response.json()).data||[], bySymbol=new Map(fallback.map(row=>[row.symbol,{...row}]));
-    records.forEach(record=>{const [symbol,,regularClose,regularOpen,regularChange,oneWeek,oneMonth,threeMonths,sixMonths,updateMode]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''};
-      row.intraday=Number(regularOpen)>0?100*(Number(regularClose)/Number(regularOpen)-1):null;row.one_day=Number.isFinite(Number(regularChange))?Number(regularChange):null;row.one_week=Number.isFinite(Number(oneWeek))?Number(oneWeek):null;row.one_month=Number.isFinite(Number(oneMonth))?Number(oneMonth):null;row.three_months=Number.isFinite(Number(threeMonths))?Number(threeMonths):null;row.six_months=Number.isFinite(Number(sixMonths))?Number(sixMonths):null;row.update_mode=updateMode;bySymbol.set(symbol,row);});
+    records.forEach(record=>{const [symbol,,regularClose,regularOpen,regularChange,oneWeek,oneMonth,threeMonths,sixMonths,premarket,postmarket,updateMode]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''};
+      row.premarket=Number.isFinite(Number(premarket))?Number(premarket):null;row.postmarket=Number.isFinite(Number(postmarket))?Number(postmarket):null;row.intraday=Number(regularOpen)>0?100*(Number(regularClose)/Number(regularOpen)-1):null;row.one_day=Number.isFinite(Number(regularChange))?Number(regularChange):null;row.one_week=Number.isFinite(Number(oneWeek))?Number(oneWeek):null;row.one_month=Number.isFinite(Number(oneMonth))?Number(oneMonth):null;row.three_months=Number.isFinite(Number(threeMonths))?Number(threeMonths):null;row.six_months=Number.isFinite(Number(sixMonths))?Number(sixMonths):null;row.update_mode=updateMode;bySymbol.set(symbol,row);});
     liveChanges=[...bySymbol.values()];
-    const delayed=records.some(record=>String(record.d[9]||'').includes('900'));
-    liveStatus.textContent=`TradingView regular-session data only${delayed?' · public feed delayed up to 15 min':''} · refreshed ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+    const delayed=records.some(record=>String(record.d[11]||'').includes('900'));
+    liveStatus.textContent=`TradingView regular session, premarket, and after-hours fields${delayed?' · public feed delayed up to 15 min':''} · refreshed ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
     renderChangeChart();
   } catch(error) {
     liveChanges=null; liveStatus.textContent=`Current quote unavailable · showing ${current()?.date||''} close`; renderChangeChart();
@@ -206,7 +214,9 @@ document.addEventListener('click',event=>{
 });
 function exportSymbols(filter,prefix){ const rows=uniqueMembers(filter),csv=['symbol',...rows.map(row=>`"${row.symbol.replaceAll('"','""')}"`)].join('\n')+'\n'; const blob=new Blob([csv],{type:'text/csv'}),link=document.createElement('a'); link.download=`${prefix}_${current().date}.csv`; link.href=URL.createObjectURL(blob); link.click(); URL.revokeObjectURL(link.href); }
 async function snapshot(){ const button=document.getElementById('snapshot'); if(typeof html2canvas!=='function'){alert('Snapshot exporter could not load.');return;} button.disabled=true; try{const canvas=await html2canvas(document.querySelector('main'),{backgroundColor:'#141414',scale:2,useCORS:true});const link=document.createElement('a');link.download=`${data.kind}-leadership-${current().date}.png`;link.href=canvas.toDataURL('image/png');link.click();}finally{button.disabled=false;} }
+changeScope.innerHTML=data.kind==='themes'?'<button type="button" class="active" data-change-view="groups">Themes</button><button type="button" data-change-view="etfs">ETFs</button>':'';
 dateSelect.innerHTML=data.snapshots.map((snapshot,index)=>`<option value="${index}">${snapshot.date}</option>`).join(''); dateSelect.value=Math.max(0,data.snapshots.length-1); dateSelect.addEventListener('change',()=>{render();refreshLivePerformance();});
+changeScope.addEventListener('click',event=>{const button=event.target.closest('[data-change-view]');if(!button)return;changeView=button.dataset.changeView;changeScope.querySelectorAll('[data-change-view]').forEach(item=>item.classList.toggle('active',item===button));renderChangeChart();});
 document.querySelector('.change-toggle').addEventListener('click',event=>{ const button=event.target.closest('[data-change-mode]'); if(!button)return; changeMode=button.dataset.changeMode; document.querySelectorAll('[data-change-mode]').forEach(item=>item.classList.toggle('active',item===button)); renderChangeChart(); });
 document.getElementById('drawer-close').addEventListener('click',()=>dialog.close()); dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
 document.getElementById('export-leaders').addEventListener('click',()=>exportSymbols(()=>true,`${data.kind}_leaders`));

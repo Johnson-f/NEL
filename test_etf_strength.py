@@ -114,7 +114,7 @@ class EtfStrengthTests(unittest.TestCase):
         sectors = load_universe(DATA_DIR / "sector_etfs.tsv").set_index("Ticker")
         self.assertEqual(sectors.loc["XLF", "Group"], "Financial Services")
 
-    def test_sector_dashboard_omits_nel_sections_and_has_six_performance_modes(self):
+    def test_sector_dashboard_omits_nel_sections_and_has_all_performance_modes(self):
         from etf_dashboard import SECTOR_COLORS, render_dashboard
 
         payload = {
@@ -128,7 +128,7 @@ class EtfStrengthTests(unittest.TestCase):
         html = render_dashboard(payload, "sectors")
         self.assertNotIn('id="nel-title"', html)
         self.assertNotIn('id="tight-title"', html)
-        self.assertEqual(html.count("data-change-mode="), 6)
+        self.assertEqual(html.count("data-change-mode="), 8)
         self.assertNotIn("Live TradingView data", html)
         self.assertIn("public feed delayed up to 15 min", html)
         sectors = load_universe(DATA_DIR / "sector_etfs.tsv")
