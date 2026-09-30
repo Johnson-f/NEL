@@ -1,0 +1,34 @@
+name: Capture ETF after-hours session
+
+on:
+  schedule:
+    # The pair covers 8:30 PM New York across daylight-saving changes. Each
+    # run saves the latest completed session, so the non-matching run is a
+    # harmless retry.
+    - cron: "30 0,1 * * 2-6"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dashboard dependencies
+        run: pip install -r requirements.txt
+      - name: Capture completed after-hours performance
+        run: python scripts/capture_after_hours.py
+      - name: Regenerate ETF dashboards
+        run: python etf_dashboard.py
+      - name: Publish the captured session
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add outputs/etf/extended_hours.json themes.html sectors.html
+          git diff --cached --quiet || git commit -m "Capture ETF after-hours session for $(date -u +%F)"
+          git push

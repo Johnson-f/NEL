@@ -23,6 +23,12 @@ SECTOR_COLORS = {
 
 
 def render_dashboard(payload: dict, active_key: str) -> str:
+    extended_hours_path = OUTPUT_DIR / "extended_hours.json"
+    if extended_hours_path.exists():
+        try:
+            payload["extended_hours"] = json.loads(extended_hours_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            payload["extended_hours"] = {}
     data = json.dumps(payload, separators=(",", ":"))
     title = payload["title"]
     leader_label = "Theme Leaders" if active_key == "themes" else "Sector Leaders"
@@ -153,6 +159,7 @@ function isNEL(row) { return Number.isFinite(Number(row.extension)) && Number(ro
 let changeMode = 'one_day';
 let changeView = data.kind === 'themes' ? 'groups' : 'etfs';
 let liveChanges = null;
+const completedAfterHours = data.extended_hours || {};
 
 function renderLeaders(frame) {
   const rows=windowGroups(frame);
@@ -211,12 +218,13 @@ async function refreshLivePerformance() {
   try {
     const response=await fetch('https://scanner.tradingview.com/america/scan',{method:'POST',body:JSON.stringify(query)});
     if(!response.ok)throw new Error(`TradingView returned ${response.status}`);
-    const records=(await response.json()).data||[], bySymbol=new Map(fallback.map(row=>[row.symbol,{...row}]));
-    records.forEach(record=>{const [symbol,,regularClose,regularOpen,regularChange,oneWeek,oneMonth,threeMonths,sixMonths,premarket,postmarket,updateMode]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''};
-      row.premarket=Number.isFinite(Number(premarket))?Number(premarket):null;row.postmarket=Number.isFinite(Number(postmarket))?Number(postmarket):null;row.intraday=Number(regularOpen)>0?100*(Number(regularClose)/Number(regularOpen)-1):null;row.one_day=Number.isFinite(Number(regularChange))?Number(regularChange):null;row.one_week=Number.isFinite(Number(oneWeek))?Number(oneWeek):null;row.one_month=Number.isFinite(Number(oneMonth))?Number(oneMonth):null;row.three_months=Number.isFinite(Number(threeMonths))?Number(threeMonths):null;row.six_months=Number.isFinite(Number(sixMonths))?Number(sixMonths):null;row.update_mode=updateMode;bySymbol.set(symbol,row);});
+    const records=(await response.json()).data||[], bySymbol=new Map(fallback.map(row=>[row.symbol,{...row,postmarket:Number.isFinite(Number(completedAfterHours.values?.[row.symbol]))?Number(completedAfterHours.values[row.symbol]):null}]));
+    records.forEach(record=>{const [symbol,,regularClose,regularOpen,regularChange,oneWeek,oneMonth,threeMonths,sixMonths,premarket,postmarket,updateMode]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''},savedAfterHours=completedAfterHours.values?.[symbol];
+      row.premarket=Number.isFinite(Number(premarket))?Number(premarket):null;row.postmarket=Number.isFinite(Number(postmarket))?Number(postmarket):(Number.isFinite(Number(savedAfterHours))?Number(savedAfterHours):null);row.intraday=Number(regularOpen)>0?100*(Number(regularClose)/Number(regularOpen)-1):null;row.one_day=Number.isFinite(Number(regularChange))?Number(regularChange):null;row.one_week=Number.isFinite(Number(oneWeek))?Number(oneWeek):null;row.one_month=Number.isFinite(Number(oneMonth))?Number(oneMonth):null;row.three_months=Number.isFinite(Number(threeMonths))?Number(threeMonths):null;row.six_months=Number.isFinite(Number(sixMonths))?Number(sixMonths):null;row.update_mode=updateMode;bySymbol.set(symbol,row);});
     liveChanges=[...bySymbol.values()];
     const delayed=records.some(record=>String(record.d[11]||'').includes('900'));
-    liveStatus.textContent=`TradingView regular session, premarket, and after-hours fields${delayed?' · public feed delayed up to 15 min':''} · refreshed ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+    const afterHoursNote=completedAfterHours.date?` · completed after-hours: ${completedAfterHours.date}`:'';
+    liveStatus.textContent=`TradingView regular session, premarket, and after-hours fields${afterHoursNote}${delayed?' · public feed delayed up to 15 min':''} · refreshed ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
     renderChangeChart();
   } catch(error) {
     liveChanges=null; liveStatus.textContent=`Current quote unavailable · showing ${current()?.date||''} close`; renderChangeChart();
