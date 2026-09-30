@@ -88,7 +88,7 @@
 
   <div class="section-heading"><h2>ETF Performance</h2></div>
   <div id="change-scope" class="change-toggle change-scope" role="group" aria-label="Performance chart view"></div>
-  <div class="change-toggle" role="group" aria-label="ETF performance window"><button type="button" data-change-mode="premarket">Premarket</button><button type="button" data-change-mode="postmarket">After hours</button><button type="button" data-change-mode="intraday">Intraday</button><button type="button" class="active" data-change-mode="one_day">1 Day</button><button type="button" data-change-mode="one_week">1 Week</button><button type="button" data-change-mode="one_month">1 Month</button><button type="button" data-change-mode="three_months">3 Months</button><button type="button" data-change-mode="six_months">6 Months</button></div>
+  <div id="change-modes" class="change-toggle" role="group" aria-label="ETF performance window"><button type="button" data-change-mode="premarket">Premarket</button><button type="button" data-change-mode="postmarket">After hours</button><button type="button" data-change-mode="intraday">Intraday</button><button type="button" class="active" data-change-mode="one_day">1 Day</button><button type="button" data-change-mode="one_week">1 Week</button><button type="button" data-change-mode="one_month">1 Month</button><button type="button" data-change-mode="three_months">3 Months</button><button type="button" data-change-mode="six_months">6 Months</button></div>
   <div id="live-status" class="live-status">Loading current performance…</div>
   <section class="change-card"><div id="change-chart"></div></section>
 </main>
@@ -103,6 +103,7 @@ const leaderWindows = document.getElementById('leader-windows');
 const nelWindows = document.getElementById('nel-windows');
 const changeChart = document.getElementById('change-chart');
 const changeScope = document.getElementById('change-scope');
+const changeModes = document.getElementById('change-modes');
 const liveStatus = document.getElementById('live-status');
 const dialog = document.getElementById('holdings-dialog');
 const drawerTitle = document.getElementById('drawer-title');
@@ -124,7 +125,7 @@ let liveChanges = null;
 
 function renderLeaders(frame) {
   const rows=windowGroups(frame);
-  const body=rows.map(group=>{const color=data.kind==='sectors'?sectorColors[group.group]:null;return `<tr class="clickable group-row" data-frame="${frame}" data-group="${esc(group.group)}"><td>${group.rank}</td><td><button class="group-button"${color?` style="color:${color}"`:''}>${esc(group.group)}</button></td><td>${num(group.score)}</td><td>${pct(group.median_performance)}</td><td>${esc(group.leader_etf)}</td><td>${group.confirmation}/${group.member_count}</td></tr>`;}).join('');
+  const body=rows.map(group=>{const color=data.kind==='sectors'?sectorColors[group.group]:null;return `<tr class="clickable group-row" data-frame="${frame}" data-group="${esc(group.group)}"><td>${group.rank}</td><td><button class="group-button"${color?` style="color:${color}"`:''}>${esc(group.group)}</button></td><td>${num(group.score)}</td><td>${pct(group.median_performance)}</td><td><button class="ticker-button" data-leader-symbol="${esc(group.leader_etf)}">${esc(group.leader_etf)}</button></td><td>${group.confirmation}/${group.member_count}</td></tr>`;}).join('');
   const trend=data.kind==='sectors'?`<h3 class="trend-title">Leadership over time</h3><svg id="trend-${frame}" class="trend-chart" role="img" aria-label="${frames[frame]} leadership strength over time"></svg>`:'';
   return `<section class="card" data-frame="${frame}"><h3>${frames[frame]} top ${data.top_n}</h3><div class="table-wrap"><table class="leaders-table"><thead><tr><th>#</th><th>Group</th><th>Strength</th><th>Median</th><th>Leader</th><th>Confirmed</th></tr></thead><tbody>${body||'<tr><td colspan="6" class="empty">No ranking data.</td></tr>'}</tbody></table></div>${trend}</section>`;
 }
@@ -163,7 +164,7 @@ function renderChangeChart() {
   const rows=changeView==='groups' ? groupPerformanceRows(source,hasValue) : source;
   rows.sort((a,b)=>Number(hasValue(b))-Number(hasValue(a))||(hasValue(a)&&hasValue(b)?Number(b[changeMode])-Number(a[changeMode]):a.symbol.localeCompare(b.symbol)));
   const positiveAxis=Math.max(.1,...rows.filter(row=>hasValue(row)&&Number(row[changeMode])>=0).map(row=>Number(row[changeMode]))), negativeAxis=Math.max(.1,...rows.filter(row=>hasValue(row)&&Number(row[changeMode])<0).map(row=>Math.abs(Number(row[changeMode]))));
-  const body=rows.map(row=>{ const available=hasValue(row),value=available?Number(row[changeMode]):0,axis=value>=0?positiveAxis:negativeAxis,width=available?Math.min(50,Math.abs(value)/axis*50):0; return `<div class="change-row"><div class="change-label" title="${esc(row.symbol)}${row.group?` · ${esc(row.group)}`:''}"><strong>${esc(row.symbol)}</strong>${row.group?`<span>${esc(row.group)}</span>`:''}</div><div class="change-track">${available?`<span class="change-bar ${value>=0?'positive':'negative'}" style="width:${width}%"></span>`:''}</div><div class="change-value">${available?`${value>=0?'+':''}${value.toFixed(2)}%`:'—'}</div></div>`; }).join('');
+  const body=rows.map(row=>{ const available=hasValue(row),value=available?Number(row[changeMode]):0,axis=value>=0?positiveAxis:negativeAxis,width=available?Math.min(50,Math.abs(value)/axis*50):0,isGroup=changeView==='groups',target=isGroup?`data-change-group="${esc(row.symbol)}"`:`data-change-symbol="${esc(row.symbol)}"`; return `<div class="change-row clickable" ${target}><div class="change-label" title="Open ${isGroup?'theme':'ETF'} details: ${esc(row.symbol)}${row.group?` · ${esc(row.group)}`:''}"><strong>${esc(row.symbol)}</strong>${row.group?`<span>${esc(row.group)}</span>`:''}</div><div class="change-track">${available?`<span class="change-bar ${value>=0?'positive':'negative'}" style="width:${width}%"></span>`:''}</div><div class="change-value">${available?`${value>=0?'+':''}${value.toFixed(2)}%`:'—'}</div></div>`; }).join('');
   changeChart.innerHTML=`<div class="change-axis"><span></span><div class="axis-track"><span>−${negativeAxis.toFixed(1)}%</span><span>0%</span><span>+${positiveAxis.toFixed(1)}%</span></div><span></span></div>${body||'<p class="empty">No performance data is available.</p>'}`;
 }
 function groupPerformanceRows(source,hasValue) {
@@ -209,15 +210,18 @@ function openDrawer(groupName, groupMembers, initialSymbol=null) {
   dialog.showModal();
 }
 document.addEventListener('click',event=>{
+  const leaderButton=event.target.closest('[data-leader-symbol]'); if(leaderButton){const row=Object.keys(frames).flatMap(frame=>members(frame)).find(item=>item.symbol===leaderButton.dataset.leaderSymbol);if(row)openDrawer(row.group,[row],row.symbol);return;}
   const groupRow=event.target.closest('.group-row'); if(groupRow){ const group=windowGroups(groupRow.dataset.frame).find(item=>item.group===groupRow.dataset.group); if(group)openDrawer(group.group,group.members); return; }
   const etfRow=event.target.closest('.etf-row'); if(etfRow){ const row=members(etfRow.dataset.frame).find(item=>item.symbol===etfRow.dataset.symbol); if(row)openDrawer(row.group,[row],row.symbol); }
+  const chartGroup=event.target.closest('[data-change-group]'); if(chartGroup){const group=chartGroup.dataset.changeGroup,rows=(((Number(dateSelect.value)===data.snapshots.length-1&&liveChanges)||current()?.daily_changes||[]).filter(row=>row.group===group)).map(row=>({...row,description:''}));if(rows.length)openDrawer(group,rows);return;}
+  const chartSymbol=event.target.closest('[data-change-symbol]'); if(chartSymbol){const row=(((Number(dateSelect.value)===data.snapshots.length-1&&liveChanges)||current()?.daily_changes||[]).find(item=>item.symbol===chartSymbol.dataset.changeSymbol));if(row)openDrawer(row.group,[{...row,description:''}],row.symbol);}
 });
 function exportSymbols(filter,prefix){ const rows=uniqueMembers(filter),csv=['symbol',...rows.map(row=>`"${row.symbol.replaceAll('"','""')}"`)].join('\n')+'\n'; const blob=new Blob([csv],{type:'text/csv'}),link=document.createElement('a'); link.download=`${prefix}_${current().date}.csv`; link.href=URL.createObjectURL(blob); link.click(); URL.revokeObjectURL(link.href); }
 async function snapshot(){ const button=document.getElementById('snapshot'); if(typeof html2canvas!=='function'){alert('Snapshot exporter could not load.');return;} button.disabled=true; try{const canvas=await html2canvas(document.querySelector('main'),{backgroundColor:'#141414',scale:2,useCORS:true});const link=document.createElement('a');link.download=`${data.kind}-leadership-${current().date}.png`;link.href=canvas.toDataURL('image/png');link.click();}finally{button.disabled=false;} }
 changeScope.innerHTML=data.kind==='themes'?'<button type="button" class="active" data-change-view="groups">Themes</button><button type="button" data-change-view="etfs">ETFs</button>':'';
 dateSelect.innerHTML=data.snapshots.map((snapshot,index)=>`<option value="${index}">${snapshot.date}</option>`).join(''); dateSelect.value=Math.max(0,data.snapshots.length-1); dateSelect.addEventListener('change',()=>{render();refreshLivePerformance();});
 changeScope.addEventListener('click',event=>{const button=event.target.closest('[data-change-view]');if(!button)return;changeView=button.dataset.changeView;changeScope.querySelectorAll('[data-change-view]').forEach(item=>item.classList.toggle('active',item===button));renderChangeChart();});
-document.querySelector('.change-toggle').addEventListener('click',event=>{ const button=event.target.closest('[data-change-mode]'); if(!button)return; changeMode=button.dataset.changeMode; document.querySelectorAll('[data-change-mode]').forEach(item=>item.classList.toggle('active',item===button)); renderChangeChart(); });
+changeModes.addEventListener('click',event=>{ const button=event.target.closest('[data-change-mode]'); if(!button)return; changeMode=button.dataset.changeMode; changeModes.querySelectorAll('[data-change-mode]').forEach(item=>item.classList.toggle('active',item===button)); renderChangeChart(); });
 document.getElementById('drawer-close').addEventListener('click',()=>dialog.close()); dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
 document.getElementById('export-leaders').addEventListener('click',()=>exportSymbols(()=>true,`${data.kind}_leaders`));
 document.getElementById('export-nel')?.addEventListener('click',()=>exportSymbols(isNEL,`${data.kind}_nel`));
