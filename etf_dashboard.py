@@ -35,6 +35,12 @@ def render_dashboard(payload: dict, active_key: str) -> str:
             value = completed_after_hours.get(row.get("symbol"))
             if isinstance(value, (int, float)):
                 row["postmarket"] = value
+    completed_overnight = payload.get("extended_hours", {}).get("overnight", {}).get("values", {})
+    if completed_overnight and payload.get("snapshots"):
+        for row in payload["snapshots"][-1].get("daily_changes", []):
+            value = completed_overnight.get(row.get("symbol"))
+            if isinstance(value, (int, float)):
+                row["overnight"] = value
     data = json.dumps(payload, separators=(",", ":"))
     title = payload["title"]
     leader_label = "Theme Leaders" if active_key == "themes" else "Sector Leaders"
@@ -131,7 +137,7 @@ def render_dashboard(payload: dict, active_key: str) -> str:
 __FILTERED_SECTIONS__
   <div class="section-heading"><h2>ETF Performance</h2></div>
   <div id="change-scope" class="change-toggle change-scope" role="group" aria-label="Performance chart view"></div>
-  <div id="change-modes" class="change-toggle" role="group" aria-label="ETF performance window"><button type="button" data-change-mode="premarket">Premarket</button><button type="button" data-change-mode="postmarket">After hours</button><button type="button" data-change-mode="intraday">Intraday</button><button type="button" class="active" data-change-mode="one_day">1 Day</button><button type="button" data-change-mode="one_week">1 Week</button><button type="button" data-change-mode="one_month">1 Month</button><button type="button" data-change-mode="three_months">3 Months</button><button type="button" data-change-mode="six_months">6 Months</button></div>
+  <div id="change-modes" class="change-toggle" role="group" aria-label="ETF performance window"><button type="button" data-change-mode="premarket">Premarket</button><button type="button" data-change-mode="overnight">Overnight</button><button type="button" data-change-mode="postmarket">After hours</button><button type="button" data-change-mode="intraday">Intraday</button><button type="button" class="active" data-change-mode="one_day">1 Day</button><button type="button" data-change-mode="one_week">1 Week</button><button type="button" data-change-mode="one_month">1 Month</button><button type="button" data-change-mode="three_months">3 Months</button><button type="button" data-change-mode="six_months">6 Months</button></div>
   <div id="live-status" class="live-status">Loading current performance…</div>
   <section class="change-card"><div id="change-chart"></div></section>
 </main>
@@ -220,13 +226,13 @@ async function refreshLivePerformance() {
   if(Number(dateSelect.value)!==data.snapshots.length-1){liveStatus.textContent=`Historical close · ${current()?.date||''}`;return;}
   liveStatus.textContent='Loading current TradingView performance…';
   const fallback=current()?.daily_changes||[], groups=new Map(fallback.map(row=>[row.symbol,row.group])), tickers=fallback.map(row=>row.symbol);
-  const query={markets:['america'],symbols:{},options:{lang:'en'},columns:['name','exchange','close','open','change','Perf.W','Perf.1M','Perf.3M','Perf.6M','premarket_change','postmarket_change','update_mode'],filter:[{left:'name',operation:'in_range',right:tickers}],range:[0,500],ignore_unknown_fields:false};
+  const query={markets:['america'],symbols:{},options:{lang:'en'},columns:['name','exchange','close','open','change','Perf.W','Perf.1M','Perf.3M','Perf.6M','premarket_change','postmarket_change','overnight_change','update_mode'],filter:[{left:'name',operation:'in_range',right:tickers}],range:[0,500],ignore_unknown_fields:false};
   try {
     const response=await fetch('https://scanner.tradingview.com/america/scan',{method:'POST',body:JSON.stringify(query)});
     if(!response.ok)throw new Error(`TradingView returned ${response.status}`);
     const records=(await response.json()).data||[], bySymbol=new Map(fallback.map(row=>[row.symbol,{...row,postmarket:Number.isFinite(Number(completedAfterHours.values?.[row.symbol]))?Number(completedAfterHours.values[row.symbol]):null}]));
-    records.forEach(record=>{const [symbol,,regularClose,regularOpen,regularChange,oneWeek,oneMonth,threeMonths,sixMonths,premarket,postmarket,updateMode]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''},savedAfterHours=completedAfterHours.values?.[symbol],present=value=>value!==null&&value!==''&&value!==undefined&&Number.isFinite(Number(value));
-      row.premarket=present(premarket)?Number(premarket):null;row.postmarket=present(postmarket)?Number(postmarket):(present(savedAfterHours)?Number(savedAfterHours):null);row.intraday=Number(regularOpen)>0?100*(Number(regularClose)/Number(regularOpen)-1):null;row.one_day=Number.isFinite(Number(regularChange))?Number(regularChange):null;row.one_week=Number.isFinite(Number(oneWeek))?Number(oneWeek):null;row.one_month=Number.isFinite(Number(oneMonth))?Number(oneMonth):null;row.three_months=Number.isFinite(Number(threeMonths))?Number(threeMonths):null;row.six_months=Number.isFinite(Number(sixMonths))?Number(sixMonths):null;row.update_mode=updateMode;bySymbol.set(symbol,row);});
+    records.forEach(record=>{const [symbol,,regularClose,regularOpen,regularChange,oneWeek,oneMonth,threeMonths,sixMonths,premarket,postmarket,overnight,updateMode]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''},savedAfterHours=completedAfterHours.values?.[symbol],savedOvernight=completedAfterHours.overnight?.values?.[symbol],present=value=>value!==null&&value!==''&&value!==undefined&&Number.isFinite(Number(value));
+      row.premarket=present(premarket)?Number(premarket):null;row.overnight=present(overnight)?Number(overnight):(present(savedOvernight)?Number(savedOvernight):null);row.postmarket=present(postmarket)?Number(postmarket):(present(savedAfterHours)?Number(savedAfterHours):null);row.intraday=Number(regularOpen)>0?100*(Number(regularClose)/Number(regularOpen)-1):null;row.one_day=Number.isFinite(Number(regularChange))?Number(regularChange):null;row.one_week=Number.isFinite(Number(oneWeek))?Number(oneWeek):null;row.one_month=Number.isFinite(Number(oneMonth))?Number(oneMonth):null;row.three_months=Number.isFinite(Number(threeMonths))?Number(threeMonths):null;row.six_months=Number.isFinite(Number(sixMonths))?Number(sixMonths):null;row.update_mode=updateMode;bySymbol.set(symbol,row);});
     liveChanges=[...bySymbol.values()];
     const delayed=records.some(record=>String(record.d[11]||'').includes('900'));
     const afterHoursNote=completedAfterHours.date?` · completed after-hours: ${completedAfterHours.date}`:'';
