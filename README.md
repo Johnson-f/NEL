@@ -47,16 +47,6 @@ python focus_list.py
 
 The installed scheduler checks once per minute and runs the scanner once after 4:25 PM New York time on regular US market days. The extra delay lets Yahoo finalize the regular-session daily close used by the ETF pages. The run refuses to publish stale ETF data and the second cloud schedule retries an hour later. Stock NEL outputs are labelled for the next US trading session, skipping weekends and market holidays. Theme and Sector snapshots keep the date of the actual completed close because they are historical studies. If the Mac wakes later that evening, it catches up automatically. It handles daylight-saving changes and writes each run to `logs/daily_scan_YYYY-MM-DD.log`.
 
-## Premarket RVOL scanner
-
-`python premarket_rvol.py` finds the 20 highest-RVOL premarket stocks with 30-day SMA price × 30-day average volume above $30M and 10-day average volume above 350K, that are at least 3% above the prior close and trade on NASDAQ, NYSE, or AMEX. It writes a dated CSV to `outputs/`.
-
-The minimal copy-ready page at `/NEL/premarket_rvol.html` queries TradingView directly in the browser when it opens and refreshes every minute. It ranks by premarket volume ÷ 60-day average daily volume, excludes names more than 4 ATRs above their SMA50 using the live premarket price, and does not use a scheduled GitHub Action.
-
-## Opening RVOL lock
-
-The same page includes two regular-session tables. **Current RVOL** is a live top-20 list ranked by TradingView's standard RVOL (current volume ÷ its 10-day average volume). **Opening RVOL** uses TradingView's native **Rel Vol at Time** (the current 5-minute bar compared with the matching five-minute bar over the prior 10 sessions) to lock the top 20 after the first five minutes. Both tables show live current volume ÷ 60-day average volume and price distance from the low of day as a share of ATR(14). Their filters require price × 30-day average volume above $50M, 30-day average volume above 350K shares, ADR% above 4%, and the relevant RVOL measure above 1. The final LOD/ATR value is green when it is above 25% and below 75% of ATR, otherwise red.
-
 The CSV files appear in `outputs/`:
 
 - `Non-Extended Leaders`: leaders below the 4× ATR% extension threshold
