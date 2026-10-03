@@ -56,7 +56,7 @@ def render_dashboard(payload: dict, active_key: str) -> str:
   <meta name="description" content="Track leading market groups, non-extended ETFs, live performance, and underlying stock holdings.">
   <link rel="icon" type="image/png" href="assets/nel-favicon.png">
   <style>
-    :root { color-scheme:dark; --bg:#141414; --panel:#2A2A2A; --track:#1b1b1b; --line:#454545; --text:#F5F2E8; --orange:#ff9900; --cyan:#00ffff; --pink:#ff3366; }
+    :root { color-scheme:dark; --bg:#141414; --panel:#2A2A2A; --track:#1b1b1b; --line:#454545; --text:#F5F2E8; --orange:#ff9900; --cyan:#00ffff; --pink:#ff3366; --green:#86d65d; }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
     main { width:100%; max-width:2200px; margin:auto; padding:22px 34px 44px; }
@@ -72,10 +72,10 @@ def render_dashboard(payload: dict, active_key: str) -> str:
     .section-heading { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; margin:27px 0 13px; }
     .section-heading h2 { grid-column:2; text-align:center; }
     .section-heading .button { grid-column:3; justify-self:end; }
-    .windows { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; align-items:start; }
+    .windows { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; align-items:start; }
     .card { min-width:0; background:var(--panel); border:1px solid var(--line); border-top:3px solid var(--orange); border-radius:10px; padding:16px; }
-    .card[data-frame="3m"] { border-top-color:var(--cyan); } .card[data-frame="6m"] { border-top-color:var(--pink); }
-    .card h3 { color:var(--orange); margin:0 0 12px; font-size:14px; } .card[data-frame="3m"] h3 { color:var(--cyan); } .card[data-frame="6m"] h3 { color:var(--pink); }
+    .card[data-frame="3m"] { border-top-color:var(--cyan); } .card[data-frame="6m"] { border-top-color:var(--pink); } .card[data-frame="1y"] { border-top-color:var(--green); }
+    .card h3 { color:var(--orange); margin:0 0 12px; font-size:14px; } .card[data-frame="3m"] h3 { color:var(--cyan); } .card[data-frame="6m"] h3 { color:var(--pink); } .card[data-frame="1y"] h3 { color:var(--green); }
     .card .trend-title { margin:19px 0 5px; color:var(--text); font-size:14px; }
     .trend-chart { display:block; width:100%; height:260px; overflow:visible; }
     .table-wrap { width:100%; overflow:visible; }
@@ -137,7 +137,7 @@ def render_dashboard(payload: dict, active_key: str) -> str:
 __FILTERED_SECTIONS__
   <div class="section-heading"><h2>ETF Performance</h2></div>
   <div id="change-scope" class="change-toggle change-scope" role="group" aria-label="Performance chart view"></div>
-  <div id="change-modes" class="change-toggle" role="group" aria-label="ETF performance window"><button type="button" data-change-mode="premarket">Premarket</button><button type="button" data-change-mode="overnight">Overnight</button><button type="button" data-change-mode="postmarket">After hours</button><button type="button" data-change-mode="intraday">Intraday</button><button type="button" class="active" data-change-mode="one_day">1 Day</button><button type="button" data-change-mode="one_week">1 Week</button><button type="button" data-change-mode="one_month">1 Month</button><button type="button" data-change-mode="three_months">3 Months</button><button type="button" data-change-mode="six_months">6 Months</button></div>
+  <div id="change-modes" class="change-toggle" role="group" aria-label="ETF performance window"><button type="button" data-change-mode="premarket">Premarket</button><button type="button" data-change-mode="overnight">Overnight</button><button type="button" data-change-mode="postmarket">After hours</button><button type="button" data-change-mode="intraday">Intraday</button><button type="button" class="active" data-change-mode="one_day">1 Day</button><button type="button" data-change-mode="one_week">1 Week</button><button type="button" data-change-mode="one_month">1 Month</button><button type="button" data-change-mode="three_months">3 Months</button><button type="button" data-change-mode="six_months">6 Months</button><button type="button" data-change-mode="one_year">1 Year</button></div>
   <div id="live-status" class="live-status">Loading current performance…</div>
   <section class="change-card"><div id="change-chart"></div></section>
 </main>
@@ -145,7 +145,7 @@ __FILTERED_SECTIONS__
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 const data = __DATA__;
-const frames = { '1m':'1 month', '3m':'3 months', '6m':'6 months' };
+const frames = { '1m':'1 month', '3m':'3 months', '6m':'6 months', '1y':'1 year' };
 const sectorColors = __SECTOR_COLORS__;
 const dateSelect = document.getElementById('date');
 const leaderWindows = document.getElementById('leader-windows');
@@ -226,13 +226,13 @@ async function refreshLivePerformance() {
   if(Number(dateSelect.value)!==data.snapshots.length-1){liveStatus.textContent=`Historical close · ${current()?.date||''}`;return;}
   liveStatus.textContent='Loading current TradingView performance…';
   const fallback=current()?.daily_changes||[], groups=new Map(fallback.map(row=>[row.symbol,row.group])), tickers=fallback.map(row=>row.symbol);
-  const query={markets:['america'],symbols:{},options:{lang:'en'},columns:['name','exchange','close','open','change','Perf.W','Perf.1M','Perf.3M','Perf.6M','premarket_change','postmarket_change','overnight_change','update_mode'],filter:[{left:'name',operation:'in_range',right:tickers}],range:[0,500],ignore_unknown_fields:false};
+  const query={markets:['america'],symbols:{},options:{lang:'en'},columns:['name','exchange','close','open','change','Perf.W','Perf.1M','Perf.3M','Perf.6M','Perf.Y','premarket_change','postmarket_change','overnight_change','update_mode'],filter:[{left:'name',operation:'in_range',right:tickers}],range:[0,500],ignore_unknown_fields:false};
   try {
     const response=await fetch('https://scanner.tradingview.com/america/scan',{method:'POST',body:JSON.stringify(query)});
     if(!response.ok)throw new Error(`TradingView returned ${response.status}`);
     const records=(await response.json()).data||[], bySymbol=new Map(fallback.map(row=>[row.symbol,{...row,postmarket:Number.isFinite(Number(completedAfterHours.values?.[row.symbol]))?Number(completedAfterHours.values[row.symbol]):null}]));
-    records.forEach(record=>{const [symbol,,regularClose,regularOpen,regularChange,oneWeek,oneMonth,threeMonths,sixMonths,premarket,postmarket,overnight,updateMode]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''},savedAfterHours=completedAfterHours.values?.[symbol],savedOvernight=completedAfterHours.overnight?.values?.[symbol],present=value=>value!==null&&value!==''&&value!==undefined&&Number.isFinite(Number(value));
-      row.premarket=present(premarket)?Number(premarket):null;row.overnight=present(overnight)?Number(overnight):(present(savedOvernight)?Number(savedOvernight):null);row.postmarket=present(postmarket)?Number(postmarket):(present(savedAfterHours)?Number(savedAfterHours):null);row.intraday=Number(regularOpen)>0?100*(Number(regularClose)/Number(regularOpen)-1):null;row.one_day=Number.isFinite(Number(regularChange))?Number(regularChange):null;row.one_week=Number.isFinite(Number(oneWeek))?Number(oneWeek):null;row.one_month=Number.isFinite(Number(oneMonth))?Number(oneMonth):null;row.three_months=Number.isFinite(Number(threeMonths))?Number(threeMonths):null;row.six_months=Number.isFinite(Number(sixMonths))?Number(sixMonths):null;row.update_mode=updateMode;bySymbol.set(symbol,row);});
+    records.forEach(record=>{const [symbol,,regularClose,regularOpen,regularChange,oneWeek,oneMonth,threeMonths,sixMonths,oneYear,premarket,postmarket,overnight,updateMode]=record.d;const row=bySymbol.get(symbol)||{symbol,group:groups.get(symbol)||''},savedAfterHours=completedAfterHours.values?.[symbol],savedOvernight=completedAfterHours.overnight?.values?.[symbol],present=value=>value!==null&&value!==''&&value!==undefined&&Number.isFinite(Number(value));
+      row.premarket=present(premarket)?Number(premarket):null;row.overnight=present(overnight)?Number(overnight):(present(savedOvernight)?Number(savedOvernight):null);row.postmarket=present(postmarket)?Number(postmarket):(present(savedAfterHours)?Number(savedAfterHours):null);row.intraday=Number(regularOpen)>0?100*(Number(regularClose)/Number(regularOpen)-1):null;row.one_day=Number.isFinite(Number(regularChange))?Number(regularChange):null;row.one_week=Number.isFinite(Number(oneWeek))?Number(oneWeek):null;row.one_month=Number.isFinite(Number(oneMonth))?Number(oneMonth):null;row.three_months=Number.isFinite(Number(threeMonths))?Number(threeMonths):null;row.six_months=Number.isFinite(Number(sixMonths))?Number(sixMonths):null;row.one_year=Number.isFinite(Number(oneYear))?Number(oneYear):null;row.update_mode=updateMode;bySymbol.set(symbol,row);});
     liveChanges=[...bySymbol.values()];
     const delayed=records.some(record=>String(record.d[11]||'').includes('900'));
     const afterHoursNote=completedAfterHours.date?` · completed after-hours: ${completedAfterHours.date}`:'';

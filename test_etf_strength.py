@@ -22,6 +22,7 @@ def metric_frame(session: date, performance: float, extension: float = 2.0) -> p
             "perf_1m": performance,
             "perf_3m": performance,
             "perf_6m": performance,
+            "perf_1y": performance,
             "adrp": 5.0,
             "atrp": 4.0,
             "average_volume_10d": 1_000_000,
@@ -128,7 +129,7 @@ class EtfStrengthTests(unittest.TestCase):
         html = render_dashboard(payload, "sectors")
         self.assertNotIn('id="nel-title"', html)
         self.assertNotIn('id="tight-title"', html)
-        self.assertEqual(html.count("data-change-mode="), 9)
+        self.assertEqual(html.count("data-change-mode="), 10)
         self.assertNotIn("Live TradingView data", html)
         self.assertIn("public feed delayed up to 15 min", html)
         sectors = load_universe(DATA_DIR / "sector_etfs.tsv")

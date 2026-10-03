@@ -9,19 +9,19 @@ It keeps US common stocks listed on NASDAQ, NYSE, and AMEX that meet all of thes
 - 10-day average volume above 350K shares
 - Industry does not contain “Biotech”
 
-It takes the top 5% of stocks by TradingView performance over each of 1 month, 3 months, and 6 months. It combines those three groups, removes duplicate tickers, and removes names more than 4 ATR% multiples above the 50-day SMA. The result is NEL, not a discretionary focus list.
+It takes the top 5% of stocks by TradingView performance over each of 1 month, 3 months, 6 months, and 1 year. It combines those four groups, removes duplicate tickers, and removes names more than 4 ATR% multiples above the 50-day SMA. The result is NEL, not a discretionary focus list.
 
 ## Tight Non-Extended Leaders (T-NEL)
 
 After NEL is built, the scanner downloads three months of daily OHLC history for those symbols with `yfinance`. A stock qualifies as Tight NEL when it is above its 9-day EMA, its five-day high-low range is no more than 2.5 ATR, its current daily range is below the prior day's ATR, and either its three-day or five-day closes and true ranges satisfy the fast-coil contraction rules. RMV(15) is retained as a secondary ranking value; it is not the pass/fail rule.
 
-The daily run writes `tight_non_extended_leaders_YYYY-MM-DD.csv` and a symbol-only `outputs/EXPORT/tight_nel_symbols_YYYY-MM-DD.csv`. The dashboard displays separate 1-, 3-, and 6-month Tight NEL tables and can export the selected Tight NEL symbol list.
+The daily run writes `tight_non_extended_leaders_YYYY-MM-DD.csv` and a symbol-only `outputs/EXPORT/tight_nel_symbols_YYYY-MM-DD.csv`. The dashboard displays separate 1-, 3-, 6-, and 12-month Tight NEL tables and can export the selected Tight NEL symbol list.
 
 The separate Themes and Sectors studies use fixed ETF universes and are dated with the actual completed market session they measure. Unlike the stock NEL list, their dates are not advanced to the next trading session.
 
 ## Theme and sector ETF studies
 
-The shared navigation bar links the stock dashboard to `themes.html` and `sectors.html`. Both ETF studies use adjusted close for 1-week, 1-, 3-, and 6-month performance, while intraday change, ADR%, ATR%, SMA50 extension, and liquidity use raw regular-session OHLC and volume. A compact centered performance chart toggles between premarket, overnight, after-hours, intraday, 1-day, 1-week, 1-month, 3-month, and 6-month returns. Premarket is measured against the prior regular close; Overnight is the actual 8 PM–4 AM session; After hours is measured from the regular close to the final 4–8 PM price. Completed extended-session values are persisted after the live public fields clear. The Themes chart defaults to one median return per theme, with an ETF drill-down toggle. TradingView identifies its public feed as delayed by up to 15 minutes; older selected dates remain historical close snapshots.
+The shared navigation bar links the stock dashboard to `themes.html` and `sectors.html`. Both ETF studies use adjusted close for 1-week, 1-, 3-, 6-, and 12-month performance, while intraday change, ADR%, ATR%, SMA50 extension, and liquidity use raw regular-session OHLC and volume. A compact centered performance chart toggles between premarket, overnight, after-hours, intraday, 1-day, 1-week, 1-month, 3-month, 6-month, and 1-year returns. Premarket is measured against the prior regular close; Overnight is the actual 8 PM–4 AM session; After hours is measured from the regular close to the final 4–8 PM price. Completed extended-session values are persisted after the live public fields clear. The Themes chart defaults to one median return per theme, with an ETF drill-down toggle. TradingView identifies its public feed as delayed by up to 15 minutes; older selected dates remain historical close snapshots.
 
 The Themes page ranks ten unique groups per performance window. Every ETF first receives a percentile rank, then each group is scored as `70% × median member percentile + 30% × strongest member percentile`. Multiple strong funds therefore confirm a group without occupying multiple leaderboard positions. All member ETFs remain available for the NEL view. The Sectors page applies the same calculations to the eleven fixed sector ETFs and keeps the top three, without a separate NEL section. Sectors also chart the current top sectors' normalized leadership strength over the latest 30 completed sessions, using one permanent color for each sector.
 
@@ -71,7 +71,7 @@ Tight NEL is an objective compression shortlist, not a replacement for reviewing
 
 ## Industry leadership dashboard
 
-Every run also refreshes `industry_flow_dashboard.html`. Open it in a browser to compare industry leadership across the saved daily snapshots. It shows the 1-month, 3-month, and 6-month views together. The NEL section lists every non-extended leader by performance window. Its theme cards always derive from the full momentum-leader file, not NEL, so extended names do not distort the strongest-industry signal. Keep prior daily CSV files in `outputs/`; the dashboard reads all of them when it is regenerated.
+Every run also refreshes `industry_flow_dashboard.html`. Open it in a browser to compare industry leadership across the saved daily snapshots. It shows the 1-month, 3-month, 6-month, and 1-year views together. The NEL section lists every non-extended leader by performance window. Its theme cards always derive from the full momentum-leader file, not NEL, so extended names do not distort the strongest-industry signal. Keep prior daily CSV files in `outputs/`; the dashboard reads all of them when it is regenerated.
 
 ## GitHub Pages and cloud automation
 

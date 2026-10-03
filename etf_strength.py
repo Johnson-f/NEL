@@ -22,7 +22,7 @@ PROJECT_DIR = Path(__file__).resolve().parent
 DATA_DIR = PROJECT_DIR / "data"
 OUTPUT_DIR = PROJECT_DIR / "outputs" / "etf"
 HOLDINGS_CACHE = DATA_DIR / "etf_holdings_cache.json"
-WINDOWS = {"1m": 1, "3m": 3, "6m": 6}
+WINDOWS = {"1m": 1, "3m": 3, "6m": 6, "1y": 12}
 GROUP_ALIASES = {"Oil & Gas": "Oil & gas"}
 NON_STOCK_TERMS = {
     "CASH", "CURRENCY", "TREASURY", "BOND", "NOTE", "BILL", "SWAP", "FUTURE",
@@ -208,6 +208,7 @@ def build_metric_history(history: pd.DataFrame) -> pd.DataFrame:
     metrics["perf_1m"] = _calendar_return(adjusted, 1)
     metrics["perf_3m"] = _calendar_return(adjusted, 3)
     metrics["perf_6m"] = _calendar_return(adjusted, 6)
+    metrics["perf_1y"] = _calendar_return(adjusted, 12)
     metrics["perf_1w"] = 100 * (adjusted / adjusted.shift(5) - 1)
     metrics["intraday_change"] = 100 * (frame["close"] / frame["open"] - 1)
     metrics["close_to_close_change"] = 100 * (adjusted / adjusted.shift(1) - 1)
@@ -377,6 +378,7 @@ def build_snapshots(
                         "one_month": None,
                         "three_months": None,
                         "six_months": None,
+                        "one_year": None,
                     }
                 )
                 continue
@@ -391,6 +393,7 @@ def build_snapshots(
                     "one_month": _clean_number(row.get("perf_1m")),
                     "three_months": _clean_number(row.get("perf_3m")),
                     "six_months": _clean_number(row.get("perf_6m")),
+                    "one_year": _clean_number(row.get("perf_1y")),
                 }
             )
         snapshot = {"date": session.isoformat(), "windows": windows, "daily_changes": daily_changes}
