@@ -560,7 +560,10 @@ def main() -> int:
     validate_completed_session(close_date)
     universes = {config.key: load_universe(config.source) for config in UNIVERSES}
     all_etfs = sorted({ticker for universe in universes.values() for ticker in universe["Ticker"]})
-    history_start = date(close_date.year - 1, 5, 1)
+    # A 12-month return for the first January session needs the corresponding
+    # January session from the prior year. Keep all of the prior calendar year
+    # so every YTD snapshot can populate the 1-year window.
+    history_start = date(close_date.year - 1, 1, 1)
     histories, errors = download_prices([*all_etfs, "SPY"], history_start, close_date)
     validate_actual_close(histories, close_date)
     validate_universe_coverage(histories, all_etfs)
