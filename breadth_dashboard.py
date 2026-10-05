@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Capture Stockbee's published Market Monitor and build the Breadth page."""
+from __future__ import annotations
+
+import csv, io, json
+from pathlib import Path
+
+import requests
+
+SHEET = "https://docs.google.com/spreadsheets/d/1O6OhS7ciA8zwfycBfGPbP2fWJnR0pn2UUvFZVDP9jpE/pub?gid=1082103394&single=true&output=csv"
+OUT = Path("outputs/breadth_market_monitor.json")
+
+def number(value: str):
+    value = value.replace(",", "").strip()
+    try: return float(value)
+    except ValueError: return None
+
+def load_rows():
+    response = requests.get(SHEET, timeout=30)
+    response.raise_for_status()
+    text = response.text
+    raw = list(csv.reader(io.StringIO(text)))
+    headers = [cell.strip() for cell in raw[1]]
+    rows = []
+    for values in raw[2:]:
+        if not values or not values[0].strip(): continue
+        item = {headers[i]: (values[i].strip() if i < len(values) else "") for i in range(len(headers))}
+        rows.append(item)
+    return rows
+
+def build_page(rows):
+    payload = json.dumps(rows, separators=(",", ":"))
+    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Breadth | Liquid Leadership</title><meta name="description" content="Daily Stockbee market-breadth monitor, made easier to read."><link rel="icon" type="image/png" href="assets/nel-favicon.png"><style>
+:root{{--bg:#141414;--panel:#2A2A2A;--line:#454545;--text:#F5F2E8;--muted:#bdb9ae;--up:#62d6b4;--down:#ff6b8a;--gold:#e9c46a}}*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}}main{{max-width:1680px;margin:auto;padding:24px 40px 46px}}.site-nav{{display:flex;justify-content:center;gap:7px;margin:0 0 22px}}.site-nav a{{min-width:92px;padding:7px 13px;border:1px solid var(--line);border-radius:7px;color:var(--text);text-align:center;text-decoration:none;font-weight:650;font-size:14px}}.site-nav a.active,.site-nav a:hover{{background:var(--text);color:var(--bg)}}.top{{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 20px}}h1{{font-size:22px;margin:0}}.date{{color:var(--muted);font-weight:650}}.sub{{color:var(--muted);margin:4px 0 0}}.grid{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}}.card,.chart,.table-card{{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}}.label{{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}}.value{{font-size:27px;font-weight:750;margin:3px 0}}.up{{color:var(--up)}}.down{{color:var(--down)}}.gold{{color:var(--gold)}}.pairs{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}}.pair-row{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}}.side{{background:#141414;border-radius:6px;padding:10px}}.side strong{{display:block;font-size:20px}}.chart{{margin-top:14px}}.chart-head{{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}}button{{background:#141414;border:1px solid var(--line);color:var(--text);padding:7px 10px;border-radius:6px;font-weight:650;cursor:pointer}}button.active{{background:var(--text);color:var(--bg)}}svg{{width:100%;height:330px;display:block;margin-top:12px}}.legend{{color:var(--muted);font-size:13px}}.table-card{{margin-top:14px;overflow:auto;max-height:480px}}table{{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}}th,td{{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}}th{{position:sticky;top:0;background:var(--panel);font-size:12px;color:var(--muted)}}th:first-child,td:first-child{{text-align:left}}@media(max-width:1050px){{.grid,.pairs{{grid-template-columns:repeat(2,minmax(0,1fr))}}main{{padding:20px}}}}@media(max-width:620px){{.grid,.pairs{{grid-template-columns:1fr}}.top{{display:block}}.site-nav{{justify-content:flex-start;overflow:auto}}}}
+</style></head><body><main><nav class="site-nav"><a href="index.html">Stocks</a><a href="themes.html">Themes</a><a href="sectors.html">Sectors</a><a class="active" href="breadth.html">Breadth</a></nav><div class="top"><div><h1>Market Breadth</h1><p class="sub">Stockbee Market Monitor — daily participation beneath the index.</p></div><div class="date" id="date"></div></div><section class="grid" id="cards"></section><section class="pairs" id="pairs"></section><section class="chart"><div class="chart-head"><div><strong id="chart-title">Daily 4% movers</strong><div class="legend">Green = upside participation · red = downside participation</div></div><div id="controls"></div></div><svg id="chart" viewBox="0 0 1000 330" aria-label="Breadth history chart"></svg></section><section class="table-card"><table><thead><tr><th>Date</th><th>Up 4%</th><th>Down 4%</th><th>5D Ratio</th><th>10D Ratio</th><th>Quarter +25%</th><th>Quarter −25%</th><th>T2108</th><th>S&P</th></tr></thead><tbody id="table"></tbody></table></section></main><script>
+const rows={payload};const fields={{daily:['Number of stocks up 4% plus today','Number of stocks down 4% plus today'],quarter:['Number of stocks up 25% plus in a quarter','Number of stocks down 25% + in a quarter'],month:['Number of stocks up 25% + in a month','Number of stocks down 25% + in a month'],fast:['Number of stocks up 13% + in 34 days','Number of stocks down 13% + in 34 days']}};const n=(r,k)=>Number(String(r[k]||'').replaceAll(',',''))||0;const latest=rows[0];document.querySelector('#date').textContent=`Updated ${{latest.Date}}`;document.querySelector('#cards').innerHTML=[['Up 4% today',n(latest,fields.daily[0]),'up'],['Down 4% today',n(latest,fields.daily[1]),'down'],['5-day ratio',n(latest,'5 day ratio'),'gold'],['10-day ratio',n(latest,'10 day  ratio '),'gold'],['T2108',n(latest,'T2108 '),'up'],['S&P',n(latest,'S&P'),'']].map(([l,v,c])=>`<div class="card"><div class="label">${{l}}</div><div class="value ${{c}}">${{l.includes('ratio')?v.toFixed(2):v.toLocaleString()}}</div></div>`).join('');document.querySelector('#pairs').innerHTML=[['Quarterly ±25%',...fields.quarter],['Monthly ±25%',...fields.month],['34-day ±13%',...fields.fast]].map(([l,u,d])=>`<div class="card"><strong>${{l}}</strong><div class="pair-row"><div class="side up">Up<strong>${{n(latest,u).toLocaleString()}}</strong></div><div class="side down">Down<strong>${{n(latest,d).toLocaleString()}}</strong></div></div></div>`).join('');let active='daily';const controls=document.querySelector('#controls');Object.keys(fields).forEach(key=>{{const b=document.createElement('button');b.textContent={{daily:'Daily ±4%',quarter:'Quarter ±25%',month:'Month ±25%',fast:'34-day ±13%'}}[key];b.onclick=()=>{{active=key;render();}};controls.append(b)}});function render(){{[...controls.children].forEach((b,i)=>b.classList.toggle('active',Object.keys(fields)[i]===active));const [up,down]=fields[active],data=rows.slice(0,90).reverse(),max=Math.max(...data.flatMap(r=>[n(r,up),n(r,down)]),1),svg=document.querySelector('#chart'),w=940,h=270,x=i=>35+i*(w/(data.length-1)),y=v=>290-v/max*h,path=k=>data.map((r,i)=>`${{i?'L':'M'}}${{x(i).toFixed(1)}},${{y(n(r,k)).toFixed(1)}}`).join(' ');svg.innerHTML=`<path d="M35,290H975 M35,20V290" stroke="#454545" fill="none"/><path d="${{path(up)}}" stroke="#62d6b4" stroke-width="3" fill="none"/><path d="${{path(down)}}" stroke="#ff6b8a" stroke-width="3" fill="none"/><text x="35" y="316" fill="#bdb9ae" font-size="12">${{data[0].Date}}</text><text x="900" y="316" fill="#bdb9ae" font-size="12">${{data.at(-1).Date}}</text><text x="40" y="35" fill="#bdb9ae" font-size="12">${{max.toLocaleString()}}</text>`;document.querySelector('#chart-title').textContent=controls.querySelector('.active').textContent;}}render();document.querySelector('#table tbody').innerHTML=rows.map(r=>`<tr><td>${{r.Date}}</td><td class="up">${{n(r,fields.daily[0]).toLocaleString()}}</td><td class="down">${{n(r,fields.daily[1]).toLocaleString()}}</td><td>${{n(r,'5 day ratio').toFixed(2)}}</td><td>${{n(r,'10 day  ratio ').toFixed(2)}}</td><td>${{n(r,fields.quarter[0]).toLocaleString()}}</td><td>${{n(r,fields.quarter[1]).toLocaleString()}}</td><td>${{n(r,'T2108 ').toFixed(2)}}</td><td>${{n(r,'S&P').toLocaleString()}}</td></tr>`).join('');</script></body></html>'''
+
+def main():
+    rows = load_rows()
+    OUT.parent.mkdir(exist_ok=True); OUT.write_text(json.dumps(rows, separators=(",", ":")))
+    Path("breadth.html").write_text(build_page(rows))
+    print(f"Captured {len(rows)} breadth rows through {rows[0]['Date']}")
+if __name__ == '__main__': main()
