@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: nel-repository-writes
+  cancel-in-progress: false
+
 jobs:
   capture:
     runs-on: ubuntu-latest

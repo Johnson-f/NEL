@@ -76,3 +76,5 @@ Every run also refreshes `industry_flow_dashboard.html`. Open it in a browser to
 ## GitHub Pages and cloud automation
 
 `index.html` is refreshed with the dashboard for GitHub Pages. The GitHub Actions workflow in `.github/workflows/daily-scan.yml` schedules the scanner after the US close, commits the refreshed CSVs and dashboard, and works without your Mac being awake. GitHub Pages must be enabled for the repository with the `main` branch and `/ (root)` folder selected as its source.
+
+The Breadth page has a separate after-close watcher because Stockbee publishes its Market Monitor at variable times. GitHub checks hourly through late evening in New York, rebuilds the full historical Time Machine, and commits only when the published sheet actually changes.

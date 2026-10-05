@@ -1,0 +1,43 @@
+name: Refresh Stockbee breadth
+
+on:
+  schedule:
+    # Hourly through the New York post-close evening. The Python guard handles
+    # daylight saving time and rejects the one pre-close UTC slot in winter.
+    - cron: "40 20-23 * * 1-5"
+    - cron: "40 0-3 * * 2-6"
+    # Final morning catch-up if Stockbee published unusually late.
+    - cron: "40 12 * * 2-6"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nel-repository-writes
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Breadth dependencies
+        run: pip install requests yfinance
+
+      - name: Check Stockbee for a published close
+        run: python scripts/refresh_breadth_after_close.py
+
+      - name: Publish only when the source changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add breadth.html outputs/breadth_market_monitor.json
+          git diff --cached --quiet || git commit -m "Refresh Stockbee breadth for $(date -u +%F)"
+          git pull --rebase
+          git push
