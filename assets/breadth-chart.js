@@ -5,6 +5,11 @@
   const chartHead = document.querySelector('.chart-head');
   if (!chart || !spxChart || !metricControls || !chartHead || typeof rows === 'undefined' || typeof views === 'undefined') return;
 
+  const chartStyles = document.createElement('link');
+  chartStyles.rel = 'stylesheet';
+  chartStyles.href = 'assets/breadth-chart.css?v=1';
+  document.head.append(chartStyles);
+
   let selectedMetric = 'daily';
   let selectedRange = '3m';
   const rangeDefinitions = [
@@ -18,9 +23,24 @@
     { key: '5y', label: '5Y', amount: 5, unit: 'year' },
   ];
   const rangeControls = document.createElement('div');
-  rangeControls.className = 'controls';
+  rangeControls.className = 'controls chart-range-controls';
   rangeControls.setAttribute('aria-label', 'Chart range');
-  chartHead.append(rangeControls);
+  const toolbar = document.createElement('div');
+  toolbar.className = 'chart-toolbar';
+  const measureBlock = document.createElement('div');
+  measureBlock.className = 'chart-control-block';
+  const rangeBlock = document.createElement('div');
+  rangeBlock.className = 'chart-control-block';
+  const measureLabel = document.createElement('span');
+  measureLabel.className = 'chart-control-label';
+  measureLabel.textContent = 'Measure';
+  const rangeLabel = document.createElement('span');
+  rangeLabel.className = 'chart-control-label';
+  rangeLabel.textContent = 'Range';
+  chartHead.after(toolbar);
+  measureBlock.append(measureLabel, metricControls);
+  rangeBlock.append(rangeLabel, rangeControls);
+  toolbar.append(measureBlock, rangeBlock);
 
   metricControls.innerHTML = '';
   Object.entries(views).forEach(([key, view]) => {

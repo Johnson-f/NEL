@@ -1,0 +1,99 @@
+.chart {
+  padding: 20px 22px 18px;
+}
+
+.chart > .chart-head {
+  display: block;
+  min-height: 58px;
+}
+
+.chart > .chart-head h2 {
+  margin: 0 0 4px !important;
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+.chart > .chart-head .legend {
+  max-width: 1100px;
+  line-height: 1.4;
+}
+
+.chart-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 60px;
+  margin: 3px 0 4px;
+  padding: 9px 0 7px;
+  border-top: 1px solid transparent;
+}
+
+.chart-control-block {
+  min-width: 0;
+}
+
+.chart-control-block:last-child {
+  flex: 0 0 auto;
+}
+
+.chart-control-label {
+  display: block;
+  margin: 0 0 5px 2px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: .055em;
+}
+
+.chart-toolbar .controls {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.chart-toolbar button {
+  min-height: 36px;
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+
+.chart-range-controls button {
+  min-width: 47px;
+  padding-inline: 9px;
+}
+
+.chart > svg {
+  margin-top: 2px;
+}
+
+@media (max-width: 1280px) {
+  .chart-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .chart-control-block,
+  .chart-control-block:last-child {
+    width: 100%;
+  }
+
+  .chart-toolbar .controls {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .chart-toolbar .controls::-webkit-scrollbar { display: none; }
+}
+
+@media (max-width: 650px) {
+  .chart { padding: 17px 14px 14px; }
+  .chart > .chart-head { min-height: 76px; }
+  .chart-toolbar { min-height: 0; margin-top: 0; }
+  .chart-toolbar button { min-height: 34px; padding: 6px 9px; }
+}
