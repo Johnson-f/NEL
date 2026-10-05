@@ -1,6 +1,36 @@
+.history-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 28px 3px 11px;
+}
+
+.history-intro h2 {
+  margin: 0 0 3px;
+  font-size: 22px;
+}
+
+.history-intro p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.history-kicker {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
 .chart {
   padding: 20px 22px 18px;
 }
+
+.history-intro + .chart { margin-top: 0; }
 
 .chart > .chart-head {
   display: block;
@@ -24,9 +54,9 @@
   justify-content: space-between;
   gap: 24px;
   min-height: 60px;
-  margin: 3px 0 4px;
-  padding: 9px 0 7px;
-  border-top: 1px solid transparent;
+  margin: 5px 0 12px;
+  padding: 13px 0 0;
+  border-top: 1px solid var(--line);
 }
 
 .chart-control-block {
@@ -51,22 +81,61 @@
 .chart-toolbar .controls {
   display: flex;
   flex-wrap: nowrap;
-  gap: 6px;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid #3d3d3d;
+  border-radius: 8px;
+  background: #1b1b1b;
 }
 
 .chart-toolbar button {
   min-height: 36px;
   padding: 7px 11px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
   white-space: nowrap;
 }
+
+.chart-toolbar button:hover { background: #333; }
+.chart-toolbar button.active { background: var(--text); color: var(--bg); box-shadow: 0 1px 4px #0007; }
 
 .chart-range-controls button {
   min-width: 47px;
   padding-inline: 9px;
 }
 
-.chart > svg {
-  margin-top: 2px;
+.chart-stage {
+  overflow: hidden;
+  padding: 8px 10px 0;
+  border: 1px solid #3d3d3d;
+  border-radius: 9px;
+  background: #232323;
+}
+
+.chart-stage > svg {
+  margin: 0;
+}
+
+.spx-chart-card > .chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 48px;
+}
+
+.chart-window-badge {
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: .045em;
 }
 
 @media (max-width: 1280px) {
@@ -75,6 +144,8 @@
     grid-template-columns: 1fr;
     gap: 9px;
   }
+
+  .history-intro { display: block; }
 
   .chart-control-block,
   .chart-control-block:last-child {
@@ -96,4 +167,6 @@
   .chart > .chart-head { min-height: 76px; }
   .chart-toolbar { min-height: 0; margin-top: 0; }
   .chart-toolbar button { min-height: 34px; padding: 6px 9px; }
+  .chart-stage { padding-inline: 3px; }
+  .spx-chart-card > .chart-head { min-height: 62px; }
 }

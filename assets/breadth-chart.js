@@ -7,8 +7,28 @@
 
   const chartStyles = document.createElement('link');
   chartStyles.rel = 'stylesheet';
-  chartStyles.href = 'assets/breadth-chart.css?v=1';
+  chartStyles.href = 'assets/breadth-chart.css?v=2';
   document.head.append(chartStyles);
+
+  const breadthCard = chart.closest('.chart');
+  const spxCard = spxChart.closest('.chart');
+  breadthCard.classList.add('breadth-chart-card');
+  spxCard.classList.add('spx-chart-card');
+  const historyIntro = document.createElement('div');
+  historyIntro.className = 'history-intro';
+  historyIntro.innerHTML = '<div><div class="history-kicker">Historical context</div><h2>Breadth and price through time</h2><p>Compare participation measures with SPX across the same selected window. The values on the right belong to the Time Machine date.</p></div>';
+  breadthCard.before(historyIntro);
+  const breadthStage = document.createElement('div');
+  breadthStage.className = 'chart-stage';
+  chart.before(breadthStage);
+  breadthStage.append(chart);
+  const spxStage = document.createElement('div');
+  spxStage.className = 'chart-stage';
+  spxChart.before(spxStage);
+  spxStage.append(spxChart);
+  const spxRangeBadge = document.createElement('span');
+  spxRangeBadge.className = 'chart-window-badge';
+  spxCard.querySelector('.chart-head').append(spxRangeBadge);
 
   let selectedMetric = 'daily';
   let selectedRange = '3m';
@@ -153,11 +173,11 @@
     if (selectedMetric === 't2108') { minimum = 0; maximum = 100; }
     const padding = selectedMetric === 'ratios' ? Math.max((maximum - minimum) * 0.12, 0.05) : maximum * 0.07;
     if (selectedMetric !== 't2108') { minimum = Math.max(0, minimum - padding); maximum += padding; }
-    const left = 28, right = 805, axisX = 820, latestX = 988, top = 24, bottom = 294;
+    const left = 28, right = 805, axisX = 820, latestX = 976, top = 24, bottom = 294;
     const x = index => left + index * ((right - left) / Math.max(data.length - 1, 1));
     const y = value => bottom - (value - minimum) / Math.max(maximum - minimum, 1) * (bottom - top);
     const colors = selectedMetric === 'ratios' ? ['#e9c46a', '#75baff'] : ['#62d6b4', '#ff6b8a'];
-    let markup = '';
+    let markup = '<rect x="846" y="15" width="142" height="287" rx="8" fill="#1d1d1d" stroke="#3d3d3d"/>';
     for (let step = 0; step <= 4; step += 1) {
       const value = minimum + (maximum - minimum) * (4 - step) / 4;
       const position = top + (bottom - top) * step / 4;
@@ -206,10 +226,10 @@
     let minimum = Math.min(...values), maximum = Math.max(...values);
     const padding = Math.max((maximum - minimum) * 0.1, maximum * 0.005);
     minimum -= padding; maximum += padding;
-    const left = 28, right = 805, axisX = 820, latestX = 988, top = 24, bottom = 294;
+    const left = 28, right = 805, axisX = 820, latestX = 976, top = 24, bottom = 294;
     const x = index => left + index * ((right - left) / Math.max(data.length - 1, 1));
     const y = value => bottom - (value - minimum) / Math.max(maximum - minimum, 1) * (bottom - top);
-    let markup = '';
+    let markup = '<rect x="846" y="15" width="142" height="287" rx="8" fill="#1d1d1d" stroke="#3d3d3d"/>';
     for (let step = 0; step <= 4; step += 1) {
       const value = minimum + (maximum - minimum) * (4 - step) / 4;
       const position = top + (bottom - top) * step / 4;
@@ -226,6 +246,8 @@
   }
 
   function renderAll() {
+    const range = rangeDefinitions.find(item => item.key === selectedRange);
+    spxRangeBadge.textContent = `${range ? range.label : selectedRange} window`;
     renderBreadthChart();
     renderSpxChart();
   }
