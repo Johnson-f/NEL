@@ -2,6 +2,8 @@
   if (typeof rows === 'undefined' || !rows.length) return;
 
   const picker = document.querySelector('#asof-date');
+  const pickerButton = document.querySelector('#asof-button');
+  const pickerLabel = document.querySelector('#asof-label');
   const status = document.querySelector('#date');
   const overview = document.querySelector('#overview');
   const balances = document.querySelector('#balances');
@@ -17,7 +19,16 @@
   picker.min = rows.at(-1).date;
   picker.max = rows[0].date;
   picker.value = rows[0].date;
+  pickerLabel.textContent = rows[0].date;
   window.BREADTH_ASOF_INDEX = 0;
+
+  pickerButton.addEventListener('click', () => {
+    if (typeof picker.showPicker === 'function') picker.showPicker();
+    else {
+      picker.focus();
+      picker.click();
+    }
+  });
 
   const pairs = [
     ['Quarter ±25%', 'up25q', 'down25q', 'Stocks ≥25% from a 65-day low vs ≤−25% from a 65-day high.'],
@@ -66,6 +77,7 @@
     const latest = rows[index];
     window.BREADTH_ASOF_INDEX = index;
     picker.value = latest.date;
+    pickerLabel.textContent = latest.date;
     status.textContent = latest.date === requestedDate ? 'Market close' : `Nearest prior market close`;
     renderSummary(latest);
     renderTable(index);
