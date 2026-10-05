@@ -1,0 +1,76 @@
+.time-machine-controls {
+  display: grid;
+  grid-template-columns: 34px minmax(165px, 1fr) 34px;
+  gap: 5px;
+  align-items: stretch;
+}
+
+.session-step {
+  padding: 0;
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.session-step:hover:not(:disabled),
+.session-step:focus-visible {
+  background: #fffdf5;
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.session-step:disabled { cursor: default; opacity: .32; }
+.date-button { min-width: 165px; }
+
+.calendar-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% - 16px);
+  right: 0;
+  width: 320px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  box-shadow: 0 18px 45px #000a;
+}
+
+.calendar-popover[hidden] { display: none; }
+.calendar-head { display: grid; grid-template-columns: 32px 1fr 1fr 32px; gap: 6px; margin-bottom: 9px; }
+.calendar-head button { padding: 5px; font-size: 17px; }
+.calendar-head select {
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.calendar-weekdays,
+.calendar-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.calendar-weekdays span { padding: 3px 0; color: var(--muted); font-size: 10px; font-weight: 750; text-align: center; text-transform: uppercase; }
+.calendar-day {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border-color: transparent;
+  background: var(--soft);
+  font-size: 12px;
+}
+.calendar-day:hover:not(:disabled) { border-color: var(--text); }
+.calendar-day:disabled { cursor: default; opacity: .2; }
+.calendar-day.outside { visibility: hidden; }
+.calendar-day.selected { background: var(--text); color: var(--bg); }
+.calendar-day.latest:not(.selected) { border-color: var(--blue); }
+.calendar-help { margin: 9px 2px 0; color: var(--muted); font-size: 10px; }
+
+@media (max-width: 650px) {
+  .time-machine-controls { grid-template-columns: 34px minmax(150px, 1fr) 34px; max-width: 260px; }
+  .calendar-popover { right: auto; left: 0; width: min(320px, calc(100vw - 28px)); }
+}

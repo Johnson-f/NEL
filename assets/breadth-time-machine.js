@@ -14,6 +14,10 @@
   cycleStyles.rel = 'stylesheet';
   cycleStyles.href = 'assets/breadth-cycle.css?v=1';
   document.head.append(cycleStyles);
+  const timeMachineStyles = document.createElement('link');
+  timeMachineStyles.rel = 'stylesheet';
+  timeMachineStyles.href = 'assets/breadth-time-machine.css?v=1';
+  document.head.append(timeMachineStyles);
   const balances = document.querySelector('#balances');
   const table = document.querySelector('#table');
   const available = value => value !== null && value !== undefined && Number.isFinite(Number(value));
@@ -71,12 +75,95 @@
   picker.value = rows[0].date;
   pickerLabel.textContent = rows[0].date;
   window.BREADTH_ASOF_INDEX = 0;
+  const availableDates = new Set(rows.map(row => row.date));
+  const controls = document.createElement('div');
+  controls.className = 'time-machine-controls';
+  const previousSession = document.createElement('button');
+  previousSession.type = 'button';
+  previousSession.className = 'session-step';
+  previousSession.textContent = '‹';
+  previousSession.setAttribute('aria-label', 'Previous market session');
+  const nextSession = document.createElement('button');
+  nextSession.type = 'button';
+  nextSession.className = 'session-step';
+  nextSession.textContent = '›';
+  nextSession.setAttribute('aria-label', 'Next market session');
+  pickerButton.before(controls);
+  controls.append(previousSession, pickerButton, nextSession);
 
+  const calendar = document.createElement('div');
+  calendar.className = 'calendar-popover';
+  calendar.hidden = true;
+  calendar.setAttribute('role', 'dialog');
+  calendar.setAttribute('aria-label', 'Choose a historical market date');
+  controls.after(calendar);
+  let calendarMonth = new Date(`${rows[0].date}T12:00:00`);
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const years = [...new Set(rows.map(row => Number(row.date.slice(0, 4))))].sort((a, b) => b - a);
+  const localIso = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+
+  function renderCalendar() {
+    const year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
+    const firstWeekday = new Date(year, month, 1, 12).getDay();
+    const daysInMonth = new Date(year, month + 1, 0, 12).getDate();
+    const selected = picker.value;
+    calendar.innerHTML = `<div class="calendar-head"><button type="button" data-calendar-move="-1" aria-label="Previous month">‹</button><select data-calendar-month aria-label="Month">${monthNames.map((name, index) => `<option value="${index}"${index === month ? ' selected' : ''}>${name}</option>`).join('')}</select><select data-calendar-year aria-label="Year">${years.map(value => `<option value="${value}"${value === year ? ' selected' : ''}>${value}</option>`).join('')}</select><button type="button" data-calendar-move="1" aria-label="Next month">›</button></div><div class="calendar-weekdays">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => `<span>${day}</span>`).join('')}</div><div class="calendar-days">${Array.from({ length: 42 }, (_, position) => {
+      const day = position - firstWeekday + 1;
+      if (day < 1 || day > daysInMonth) return '<button class="calendar-day outside" type="button" disabled></button>';
+      const date = localIso(new Date(year, month, day, 12));
+      const enabled = availableDates.has(date);
+      return `<button class="calendar-day${date === selected ? ' selected' : ''}${date === rows[0].date ? ' latest' : ''}" type="button" data-calendar-date="${date}"${enabled ? '' : ' disabled'}>${day}</button>`;
+    }).join('')}</div><div class="calendar-help">Only dates with a completed market reading can be selected.</div>`;
+    calendar.querySelectorAll('[data-calendar-move]').forEach(button => button.addEventListener('click', () => {
+      calendarMonth = new Date(year, month + Number(button.dataset.calendarMove), 1, 12);
+      renderCalendar();
+    }));
+    calendar.querySelector('[data-calendar-month]').addEventListener('change', event => {
+      calendarMonth = new Date(calendarMonth.getFullYear(), Number(event.target.value), 1, 12);
+      renderCalendar();
+    });
+    calendar.querySelector('[data-calendar-year]').addEventListener('change', event => {
+      calendarMonth = new Date(Number(event.target.value), calendarMonth.getMonth(), 1, 12);
+      renderCalendar();
+    });
+    calendar.querySelectorAll('[data-calendar-date]').forEach(button => button.addEventListener('click', () => {
+      selectDate(button.dataset.calendarDate);
+      calendar.hidden = true;
+      pickerButton.setAttribute('aria-expanded', 'false');
+    }));
+  }
+
+  pickerButton.setAttribute('aria-haspopup', 'dialog');
+  pickerButton.setAttribute('aria-expanded', 'false');
   pickerButton.addEventListener('click', () => {
-    if (typeof picker.showPicker === 'function') picker.showPicker();
-    else {
-      picker.focus();
-      picker.click();
+    if (calendar.hidden) {
+      calendarMonth = new Date(`${picker.value}T12:00:00`);
+      renderCalendar();
+      calendar.hidden = false;
+      pickerButton.setAttribute('aria-expanded', 'true');
+    } else {
+      calendar.hidden = true;
+      pickerButton.setAttribute('aria-expanded', 'false');
+    }
+  });
+  previousSession.addEventListener('click', () => {
+    const target = Math.min(Number(window.BREADTH_ASOF_INDEX || 0) + 1, rows.length - 1);
+    selectDate(rows[target].date);
+  });
+  nextSession.addEventListener('click', () => {
+    const target = Math.max(Number(window.BREADTH_ASOF_INDEX || 0) - 1, 0);
+    selectDate(rows[target].date);
+  });
+  document.addEventListener('click', event => {
+    if (!calendar.hidden && !event.target.closest('.date-picker')) {
+      calendar.hidden = true;
+      pickerButton.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      calendar.hidden = true;
+      pickerButton.setAttribute('aria-expanded', 'false');
     }
   });
 
@@ -128,6 +215,8 @@
     window.BREADTH_ASOF_INDEX = index;
     picker.value = latest.date;
     pickerLabel.textContent = latest.date;
+    previousSession.disabled = index >= rows.length - 1;
+    nextSession.disabled = index <= 0;
     status.textContent = latest.date === requestedDate ? 'Market close' : `Nearest prior market close`;
     renderCycle(latest, index);
     renderSummary(latest);
