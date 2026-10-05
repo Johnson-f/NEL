@@ -125,7 +125,7 @@ def write_dashboard(output_dir: Path) -> Path:
     .window-sections { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; align-items:start; }
     .section-heading { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; margin:28px 0 14px; }
     .section-heading h2 { grid-column:2; margin:0; color:var(--text); font-size:19px; letter-spacing:-.01em; text-align:center; }
-    .section-heading .download-btn { grid-column:3; justify-self:end; }
+    .section-actions { grid-column:3; justify-self:end; display:flex; gap:8px; }
     .theme-card { padding:10px 12px; background:#141414; border-radius:4px; border-left:3px solid var(--orange); margin-bottom:12px; }
     .theme-card.frame-3m { border-color:var(--cyan); } .theme-card.frame-6m { border-color:var(--pink); } .theme-card.frame-1y { border-color:var(--green); }
     .theme-line { display:block; color:var(--text); font-size:13px; }
@@ -141,7 +141,7 @@ def write_dashboard(output_dir: Path) -> Path:
     .snapshot-date { color:#F5F2E8; font-size:14px; font-weight:600; }
     @media (max-width:1750px) { .window-sections { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width:1180px) { .window-sections { grid-template-columns:1fr; } .bar-row { grid-template-columns:130px 1fr 34px; font-size:12px; } main { padding:18px 16px; } }
-    @media (max-width:640px) { .site-nav { justify-content:flex-start; overflow-x:auto; } .topbar { grid-template-columns:1fr; justify-items:start; gap:12px; } .dashboard-title { justify-self:center; } .topbar .download-btn { justify-self:start; } .section-heading { grid-template-columns:1fr auto; } .section-heading h2 { grid-column:1; text-align:left; } .section-heading .download-btn { grid-column:2; } }
+    @media (max-width:640px) { .site-nav { justify-content:flex-start; overflow-x:auto; } .topbar { grid-template-columns:1fr; justify-items:start; gap:12px; } .dashboard-title { justify-self:center; } .topbar .download-btn { justify-self:start; } .section-heading { grid-template-columns:1fr auto; } .section-heading h2 { grid-column:1; text-align:left; } .section-actions { grid-column:2; } }
   </style>
   <link rel="stylesheet" href="assets/date-select.css?v=2">
 </head>
@@ -150,11 +150,11 @@ def write_dashboard(output_dir: Path) -> Path:
   <nav class="site-nav" aria-label="Dashboard pages"><a class="active" href="index.html">Stocks</a><a href="themes.html">Themes</a><a href="sectors.html">Sectors</a></nav>
   <div class="topbar"><select id="date" aria-label="Snapshot date"></select><h1 id="thematic-title" class="dashboard-title">Thematic Leadership</h1><button id="download-image" class="download-btn" type="button">Snapshot</button></div>
   <div id="leadership-sections" class="window-sections"></div>
-  <div class="section-heading"><h2 id="liquid-title">Liquid Leaders (LL)</h2><button id="download-ll" class="download-btn" type="button">Export LL</button></div>
+  <div class="section-heading"><h2 id="liquid-title">Liquid Leaders (LL)</h2><div class="section-actions"><button id="copy-ll" class="download-btn" type="button">Copy</button><button id="download-ll" class="download-btn" type="button">Export LL</button></div></div>
   <div id="liquid-sections" class="window-sections"></div>
-  <div class="section-heading"><h2 id="nel-title">Non-Extended Leaders (NEL)</h2><button id="download-nel" class="download-btn" type="button">Export NEL</button></div>
+  <div class="section-heading"><h2 id="nel-title">Non-Extended Leaders (NEL)</h2><div class="section-actions"><button id="copy-nel" class="download-btn" type="button">Copy</button><button id="download-nel" class="download-btn" type="button">Export NEL</button></div></div>
   <div id="nel-sections" class="window-sections"></div>
-  <div class="section-heading"><h2 id="tight-title">Tight Non-Extended Leaders (T-NEL)</h2><button id="download-tight" class="download-btn" type="button">Export T-NEL</button></div>
+  <div class="section-heading"><h2 id="tight-title">Tight Non-Extended Leaders (T-NEL)</h2><div class="section-actions"><button id="copy-tight" class="download-btn" type="button">Copy</button><button id="download-tight" class="download-btn" type="button">Export T-NEL</button></div></div>
   <div id="tight-sections" class="window-sections"></div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -173,6 +173,9 @@ const downloadButton = document.getElementById('download-image');
 const downloadLiquidButton = document.getElementById('download-ll');
 const downloadNelButton = document.getElementById('download-nel');
 const downloadTightButton = document.getElementById('download-tight');
+const copyLiquidButton = document.getElementById('copy-ll');
+const copyNelButton = document.getElementById('copy-nel');
+const copyTightButton = document.getElementById('copy-tight');
 const flowMeta = { '1m': { label:'1 month', color:'#ff9900' }, '3m': { label:'3 months', color:'#00ffff' }, '6m': { label:'6 months', color:'#ff3366' }, '1y': { label:'1 year', color:'#86d65d' } };
 const rankColors = ['#5C7CFA', '#E9C46A', '#E76F51', '#70C1B3', '#C77DFF'];
 
@@ -261,6 +264,16 @@ function downloadSymbols(key, filePrefix) {
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
   const link = document.createElement('a'); link.download = `${filePrefix}_symbols_${snapshot.date}.csv`; link.href = URL.createObjectURL(blob); link.click(); URL.revokeObjectURL(link.href);
 }
+async function copySymbols(key, button) {
+  const symbols = [...new Set((currentSnapshot()?.[key] || []).map(row => String(row.name || '').trim()).filter(Boolean))].sort();
+  const text = symbols.join(', ');
+  if (!text) return;
+  try {
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+    else { const area = document.createElement('textarea'); area.value = text; document.body.append(area); area.select(); document.execCommand('copy'); area.remove(); }
+    const original = button.textContent; button.textContent = 'Copied'; setTimeout(() => { button.textContent = original; }, 1300);
+  } catch { window.alert('Could not copy symbols.'); }
+}
 async function downloadPageImage() {
   if (typeof html2canvas !== 'function') { window.alert('The image exporter could not load. Check your connection and try again.'); return; }
   downloadButton.disabled = true; downloadButton.textContent = 'Creating image…';
@@ -269,7 +282,7 @@ async function downloadPageImage() {
     const link = document.createElement('a'); link.download = `industry-leadership-${currentSnapshot().date}.png`; link.href = canvas.toDataURL('image/png'); link.click();
   } finally { downloadButton.disabled = false; downloadButton.textContent = 'Snapshot'; }
 }
-if (!history.length) { document.querySelector('main').innerHTML = '<p class="empty">Run the scanner once to create a momentum-leader snapshot.</p>'; } else { updateDates(); dateSelect.addEventListener('change', render); downloadButton.addEventListener('click', downloadPageImage); downloadLiquidButton.addEventListener('click', () => downloadSymbols('liquid', 'liquid_leaders')); downloadNelButton.addEventListener('click', () => downloadSymbols('nel', 'nel')); downloadTightButton.addEventListener('click', () => downloadSymbols('tight', 'tight_nel')); window.addEventListener('resize', render); render(); }
+if (!history.length) { document.querySelector('main').innerHTML = '<p class="empty">Run the scanner once to create a momentum-leader snapshot.</p>'; } else { updateDates(); dateSelect.addEventListener('change', render); downloadButton.addEventListener('click', downloadPageImage); downloadLiquidButton.addEventListener('click', () => downloadSymbols('liquid', 'liquid_leaders')); downloadNelButton.addEventListener('click', () => downloadSymbols('nel', 'nel')); downloadTightButton.addEventListener('click', () => downloadSymbols('tight', 'tight_nel')); copyLiquidButton.addEventListener('click', () => copySymbols('liquid', copyLiquidButton)); copyNelButton.addEventListener('click', () => copySymbols('nel', copyNelButton)); copyTightButton.addEventListener('click', () => copySymbols('tight', copyTightButton)); window.addEventListener('resize', render); render(); }
 </script>
 <script src="assets/date-select.js?v=2"></script>
 </body>
