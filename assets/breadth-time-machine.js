@@ -6,6 +6,14 @@
   const pickerLabel = document.querySelector('#asof-label');
   const status = document.querySelector('#date');
   const overview = document.querySelector('#overview');
+  const cycle = document.createElement('section');
+  cycle.id = 'cycle';
+  cycle.className = 'panel cycle-panel';
+  overview.before(cycle);
+  const cycleStyles = document.createElement('link');
+  cycleStyles.rel = 'stylesheet';
+  cycleStyles.href = 'assets/breadth-cycle.css?v=1';
+  document.head.append(cycleStyles);
   const balances = document.querySelector('#balances');
   const table = document.querySelector('#table');
   const available = value => value !== null && value !== undefined && Number.isFinite(Number(value));
@@ -15,6 +23,48 @@
   const fixed = (value, digits = 2) => available(value) ? Number(value).toFixed(digits) : '—';
   const signed = value => available(value) ? `${Number(value) > 0 ? '+' : ''}${fmt(value)}` : '—';
   const percent = value => available(value) ? `${fixed(value, 2)}%` : '—';
+
+  function breadthStrength(row) {
+    const components = [];
+    const add = (value, weight) => {
+      if (available(value)) components.push([Math.max(-1, Math.min(1, value)), weight]);
+    };
+    const balance = (up, down) => available(up) && available(down) && Number(up) + Number(down) > 0
+      ? (Number(up) - Number(down)) / (Number(up) + Number(down))
+      : null;
+    const ratioBalance = value => available(value) && Number(value) >= 0
+      ? (Number(value) - 1) / (Number(value) + 1)
+      : null;
+    add(balance(row.up4, row.down4), .15);
+    add(ratioBalance(row.ratio5), .20);
+    add(ratioBalance(row.ratio10), .20);
+    add(balance(row.up25q, row.down25q), .15);
+    add(balance(row.up13d34, row.down13d34), .15);
+    add(available(row.t2108) ? (Number(row.t2108) - 50) / 50 : null, .15);
+    const weight = components.reduce((sum, component) => sum + component[1], 0);
+    return weight ? components.reduce((sum, component) => sum + component[0] * component[1], 0) / weight : 0;
+  }
+
+  function renderCycle(latest, index) {
+    const strength = breadthStrength(latest);
+    const older = rows[Math.min(index + 5, rows.length - 1)];
+    const change = (strength - breadthStrength(older)) * 50;
+    let phase;
+    if (strength >= .16) phase = change < -4 ? 'Distribution' : 'Expansion';
+    else if (strength <= -.16) phase = change > 4 ? 'Repair' : 'Contraction';
+    else phase = change >= 0 ? 'Repair' : 'Distribution';
+    const settings = {
+      Expansion: { angle: 45, color: '#62d6b4', text: 'Participation is broadly positive. Upside pressure is established across several breadth windows.' },
+      Distribution: { angle: 135, color: '#e9c46a', text: 'Participation is weakening. Index strength may hide a narrowing market, so watch whether selling pressure spreads.' },
+      Contraction: { angle: 225, color: '#ff6b8a', text: 'Downside participation is dominant. Breadth remains under pressure until the short-term measures begin to repair.' },
+      Repair: { angle: 315, color: '#75baff', text: 'Breadth is transitioning upward from weak or mixed conditions. Improvement is visible, but broad confirmation is still developing.' },
+    }[phase];
+    const direction = change > 1 ? ['↑', 'Improving'] : change < -1 ? ['↓', 'Weakening'] : ['→', 'Stable'];
+    const score = Math.round(50 + strength * 50);
+    cycle.style.setProperty('--cycle-color', settings.color);
+    cycle.style.setProperty('--cycle-angle', `${settings.angle}deg`);
+    cycle.innerHTML = `<div class="cycle-visual"><div class="cycle-wheel"><span class="cycle-name expansion">Expansion</span><span class="cycle-name distribution">Distribution</span><span class="cycle-name contraction">Contraction</span><span class="cycle-name repair">Repair</span><span class="cycle-dot" title="Current phase: ${phase}"></span><div class="cycle-center"><strong class="cycle-score">${score}</strong><span class="cycle-score-label">Breadth strength</span></div></div></div><div class="cycle-copy"><div class="eyebrow">Breadth cycle · ${latest.date}</div><h2>${phase}</h2><p>${settings.text}</p><div class="cycle-direction">${direction[0]} ${direction[1]} versus five sessions ago</div><div class="cycle-grid"><div class="cycle-stat"><span>Strength</span><b>${score} / 100</b></div><div class="cycle-stat"><span>5-session change</span><b>${change > 0 ? '+' : ''}${change.toFixed(1)} pts</b></div><div class="cycle-stat"><span>T2108</span><b>${percent(latest.t2108)}</b></div></div><div class="metric-note" style="margin-top:12px">Cycle estimate combines daily ±4% breadth, 5- and 10-day pressure, quarter and 34-day participation, and T2108. Use it as context—not a mechanical signal.</div></div>`;
+  }
 
   picker.min = rows.at(-1).date;
   picker.max = rows[0].date;
@@ -79,6 +129,7 @@
     picker.value = latest.date;
     pickerLabel.textContent = latest.date;
     status.textContent = latest.date === requestedDate ? 'Market close' : `Nearest prior market close`;
+    renderCycle(latest, index);
     renderSummary(latest);
     renderTable(index);
     window.dispatchEvent(new CustomEvent('breadth-asof-change', { detail: { index, row: latest } }));

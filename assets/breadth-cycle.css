@@ -1,0 +1,77 @@
+.cycle-panel {
+  display: grid;
+  grid-template-columns: minmax(330px, .85fr) minmax(360px, 1.15fr);
+  gap: 28px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 24px 30px;
+  border-top: 3px solid var(--cycle-color, var(--blue));
+}
+
+.cycle-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 310px;
+}
+
+.cycle-wheel {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: conic-gradient(from -45deg, var(--up) 0 24.5%, var(--gold) 25% 49.5%, var(--down) 50% 74.5%, var(--blue) 75% 99.5%, var(--up) 100%);
+  box-shadow: inset 0 0 0 42px var(--panel), 0 0 0 1px var(--line);
+}
+
+.cycle-center {
+  position: absolute;
+  inset: 76px;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background: var(--soft);
+  border: 1px solid var(--line);
+}
+
+.cycle-score { font-size: 34px; font-weight: 800; line-height: 1; }
+.cycle-score-label { margin-top: 5px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.cycle-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px;
+  border: 3px solid var(--text);
+  border-radius: 50%;
+  background: var(--cycle-color);
+  transform: rotate(var(--cycle-angle)) translateY(-124px);
+  box-shadow: 0 0 0 5px #14141499;
+}
+
+.cycle-name { position: absolute; color: var(--text); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .035em; text-shadow: 0 1px 3px #000; }
+.cycle-name.expansion { right: 7px; top: 48px; }
+.cycle-name.distribution { right: 0; bottom: 50px; }
+.cycle-name.contraction { left: 0; bottom: 50px; }
+.cycle-name.repair { left: 14px; top: 48px; }
+.cycle-copy h2 { margin: 5px 0 7px; color: var(--cycle-color); font-size: 30px; }
+.cycle-copy > p { max-width: 680px; margin-bottom: 18px; color: var(--muted); }
+.cycle-direction { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 6px; background: var(--soft); font-size: 12px; font-weight: 750; }
+.cycle-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 18px; }
+.cycle-stat { padding: 11px; border-radius: 7px; background: var(--soft); }
+.cycle-stat span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; }
+.cycle-stat b { font-size: 19px; }
+
+@media (max-width: 1150px) {
+  .cycle-panel { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 650px) {
+  .cycle-panel { padding: 18px 14px; }
+  .cycle-wheel { width: 250px; height: 250px; }
+  .cycle-center { inset: 68px; }
+  .cycle-dot { transform: rotate(var(--cycle-angle)) translateY(-110px); }
+  .cycle-grid { grid-template-columns: 1fr; }
+}
