@@ -1,8 +1,9 @@
 (() => {
   const chart = document.querySelector('#chart');
+  const spxChart = document.querySelector('#spx-chart');
   const metricControls = document.querySelector('#controls');
   const chartHead = document.querySelector('.chart-head');
-  if (!chart || !metricControls || !chartHead || typeof rows === 'undefined' || typeof views === 'undefined') return;
+  if (!chart || !spxChart || !metricControls || !chartHead || typeof rows === 'undefined' || typeof views === 'undefined') return;
 
   let selectedMetric = 'daily';
   let selectedRange = '66';
@@ -15,22 +16,36 @@
   Object.entries(views).forEach(([key, view]) => {
     const button = document.createElement('button');
     button.textContent = view.label;
-    button.addEventListener('click', () => { selectedMetric = key; renderEnhancedChart(); });
+    button.addEventListener('click', () => { selectedMetric = key; renderAll(); });
     metricControls.append(button);
   });
   [['5', '1W'], ['22', '1M'], ['66', '3M'], ['132', '6M'], ['ytd', 'YTD']].forEach(([count, label]) => {
     const button = document.createElement('button');
     button.textContent = label;
-    button.dataset.range = String(count);
-    button.addEventListener('click', () => { selectedRange = count; renderEnhancedChart(); });
+    button.dataset.range = count;
+    button.addEventListener('click', () => { selectedRange = count; renderAll(); });
     rangeControls.append(button);
   });
 
+  const valid = value => value !== null && value !== undefined && Number.isFinite(Number(value));
   const svgText = (x, y, value, options = '') => `<text x="${x}" y="${y}" ${options}>${value}</text>`;
   const linePath = (data, key, x, y) => data.map((row, index) => `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(row[key]).toFixed(1)}`).join(' ');
 
+  function sourceRows() {
+    const index = Number(window.BREADTH_ASOF_INDEX || 0);
+    const historical = rows.slice(index);
+    if (selectedRange !== 'ytd') return historical.slice(0, Number(selectedRange));
+    const selectedYear = rows[index].date.slice(0, 4);
+    return historical.filter(row => row.date.startsWith(selectedYear));
+  }
+
+  function noData(target, message) {
+    target.innerHTML = svgText(500, 170, message, 'text-anchor="middle" fill="#c8c4b9" font-size="15"');
+  }
+
   function significantT2108Points(data) {
-    const windowSize = 4;
+    if (data.length < 2) return [];
+    const windowSize = Math.min(4, Math.max(1, Math.floor((data.length - 1) / 2)));
     const candidates = [];
     for (let index = windowSize; index < data.length - windowSize; index += 1) {
       const value = data[index].t2108;
@@ -39,13 +54,11 @@
       if (value === Math.max(...neighborhood) && value - edgeAverage >= 4) candidates.push({ index, value, kind: 'Swing high', score: value - edgeAverage });
       if (value === Math.min(...neighborhood) && edgeAverage - value >= 4) candidates.push({ index, value, kind: 'Swing low', score: edgeAverage - value });
     }
-    const highValue = Math.max(...data.map(row => row.t2108));
-    const lowValue = Math.min(...data.map(row => row.t2108));
-    const highIndex = data.findIndex(row => row.t2108 === highValue);
-    const lowIndex = data.findIndex(row => row.t2108 === lowValue);
+    const values = data.map(row => row.t2108);
+    const highValue = Math.max(...values), lowValue = Math.min(...values);
     const selected = [
-      { index: highIndex, value: highValue, kind: 'Range high', score: Infinity },
-      { index: lowIndex, value: lowValue, kind: 'Range low', score: Infinity },
+      { index: values.indexOf(highValue), value: highValue, kind: 'Range high', score: Infinity },
+      { index: values.indexOf(lowValue), value: lowValue, kind: 'Range low', score: Infinity },
       ...candidates.sort((a, b) => b.score - a.score),
     ];
     const result = [];
@@ -57,29 +70,31 @@
     return result.sort((a, b) => a.index - b.index);
   }
 
-  function renderEnhancedChart() {
+  function renderBreadthChart() {
     [...metricControls.children].forEach((button, index) => button.classList.toggle('active', Object.keys(views)[index] === selectedMetric));
     [...rangeControls.children].forEach(button => button.classList.toggle('active', button.dataset.range === selectedRange));
     const view = views[selectedMetric];
-    const latestYear = Number(rows[0].date.split('/').at(-1));
-    const source = selectedRange === 'ytd'
-      ? rows.filter(row => Number(row.date.split('/').at(-1)) === latestYear)
-      : rows.slice(0, Number(selectedRange));
-    const data = source.slice().reverse();
-    const values = data.flatMap(row => view.keys.map(key => row[key]));
-    let minimum = Math.min(...values);
-    let maximum = Math.max(...values);
+    const data = sourceRows().filter(row => view.keys.every(key => valid(row[key]))).reverse();
+    document.querySelector('#chart-title').textContent = view.label;
+    document.querySelector('#chart-note').textContent = selectedMetric === 't2108'
+      ? 'Markers identify the visible range high/low and locally significant swings. The 20/80 lines are context zones, not automatic signals.'
+      : `${view.note} Lines end at the selected date; labels show that session's values.`;
+    if (!data.length) {
+      noData(chart, `${view.label} is not available for this historical period.`);
+      return;
+    }
+
+    const values = data.flatMap(row => view.keys.map(key => Number(row[key])));
+    let minimum = Math.min(...values), maximum = Math.max(...values);
     if (selectedMetric !== 'ratios' && selectedMetric !== 't2108') minimum = 0;
     if (selectedMetric === 't2108') { minimum = 0; maximum = 100; }
     const padding = selectedMetric === 'ratios' ? Math.max((maximum - minimum) * 0.12, 0.05) : maximum * 0.07;
     if (selectedMetric !== 't2108') { minimum = Math.max(0, minimum - padding); maximum += padding; }
-    // Keep a dedicated right gutter for the Y axis and current values.
     const left = 28, right = 805, axisX = 820, latestX = 988, top = 24, bottom = 294;
     const x = index => left + index * ((right - left) / Math.max(data.length - 1, 1));
     const y = value => bottom - (value - minimum) / Math.max(maximum - minimum, 1) * (bottom - top);
     const colors = selectedMetric === 'ratios' ? ['#e9c46a', '#75baff'] : ['#62d6b4', '#ff6b8a'];
     let markup = '';
-
     for (let step = 0; step <= 4; step += 1) {
       const value = minimum + (maximum - minimum) * (4 - step) / 4;
       const position = top + (bottom - top) * step / 4;
@@ -94,38 +109,64 @@
       });
     }
     markup += view.keys.map((key, index) => `<path d="${linePath(data, key, x, y)}" stroke="${selectedMetric === 't2108' ? '#75baff' : colors[index]}" stroke-width="3" stroke-linejoin="round" fill="none"/>`).join('');
-
     if (selectedMetric === 't2108') {
       significantT2108Points(data).forEach(point => {
         const px = x(point.index), py = y(point.value), isHigh = point.kind.includes('high');
-        const pointLabel = selectedRange === 'ytd' && point.kind.startsWith('Range') ? point.kind.replace('Range', 'YTD') : point.kind;
+        const label = selectedRange === 'ytd' && point.kind.startsWith('Range') ? point.kind.replace('Range', 'YTD') : point.kind;
         const anchor = px > right - 120 ? 'end' : px < left + 70 ? 'start' : 'middle';
         const tx = anchor === 'end' ? px - 7 : anchor === 'start' ? px + 7 : px;
-        const ty = isHigh ? py + 20 : py - 12;
-        markup += `<circle cx="${px}" cy="${py}" r="5" fill="${isHigh ? '#e9c46a' : '#ff6b8a'}" stroke="#141414" stroke-width="2"><title>${pointLabel}: ${point.value.toFixed(2)}% on ${data[point.index].date}</title></circle>`;
-        markup += svgText(tx, ty, `${pointLabel} ${point.value.toFixed(1)}%`, `text-anchor="${anchor}" fill="${isHigh ? '#e9c46a' : '#ff9bb0'}" font-size="11" font-weight="700"`);
+        markup += `<circle cx="${px}" cy="${py}" r="5" fill="${isHigh ? '#e9c46a' : '#ff6b8a'}" stroke="#141414" stroke-width="2"><title>${label}: ${point.value.toFixed(2)}% on ${data[point.index].date}</title></circle>`;
+        markup += svgText(tx, isHigh ? py + 20 : py - 12, `${label} ${point.value.toFixed(1)}%`, `text-anchor="${anchor}" fill="${isHigh ? '#e9c46a' : '#ff9bb0'}" font-size="11" font-weight="700"`);
       });
-      const latest = data.at(-1);
-      const latestY = y(latest.t2108);
-      markup += `<circle cx="${right}" cy="${latestY}" r="5" fill="#75baff" stroke="#141414" stroke-width="2"><title>Latest T2108: ${latest.t2108.toFixed(2)}% on ${latest.date}</title></circle>`;
-      markup += svgText(latestX, Math.max(top + 12, Math.min(bottom - 4, latestY)), `T2108  ${latest.t2108.toFixed(2)}%`, 'text-anchor="end" fill="#75baff" font-size="13" font-weight="750"');
+      const latest = data.at(-1), latestY = y(latest.t2108);
+      markup += `<circle cx="${right}" cy="${latestY}" r="5" fill="#75baff" stroke="#141414" stroke-width="2"/>${svgText(latestX, Math.max(top + 12, Math.min(bottom - 4, latestY)), `T2108  ${latest.t2108.toFixed(2)}%`, 'text-anchor="end" fill="#75baff" font-size="13" font-weight="750"')}`;
     } else {
       view.keys.forEach((key, index) => {
         const latest = data.at(-1), py = y(latest[key]), color = colors[index];
-        markup += `<circle cx="${right}" cy="${py}" r="5" fill="${color}" stroke="#141414" stroke-width="2"><title>${view.label}: ${latest[key]} on ${latest.date}</title></circle>`;
-        const seriesNames = selectedMetric === 'ratios' ? ['5D', '10D'] : ['Up', 'Down'];
+        const names = selectedMetric === 'ratios' ? ['5D', '10D'] : ['Up', 'Down'];
         const latestY = Math.max(top + 12, Math.min(bottom - 4, py + (index ? 11 : -8)));
-        markup += svgText(latestX, latestY, `${seriesNames[index]}  ${latest[key].toFixed(maximum < 10 ? 2 : 0)}`, `text-anchor="end" fill="${color}" font-size="13" font-weight="750"`);
+        markup += `<circle cx="${right}" cy="${py}" r="5" fill="${color}" stroke="#141414" stroke-width="2"/>${svgText(latestX, latestY, `${names[index]}  ${latest[key].toFixed(maximum < 10 ? 2 : 0)}`, `text-anchor="end" fill="${color}" font-size="13" font-weight="750"`)}`;
       });
     }
     markup += svgText(left, 327, data[0].date, 'fill="#c8c4b9" font-size="12"');
     markup += svgText(right, 327, data.at(-1).date, 'text-anchor="end" fill="#c8c4b9" font-size="12"');
     chart.innerHTML = markup;
-    document.querySelector('#chart-title').textContent = view.label;
-    document.querySelector('#chart-note').textContent = selectedMetric === 't2108'
-      ? 'Markers identify the visible range high/low and locally significant swings. The 20/80 lines are context zones, not automatic signals.'
-      : `${view.note} Lines show the two sides through time; labels show the latest values.`;
   }
 
-  renderEnhancedChart();
+  function renderSpxChart() {
+    const data = sourceRows().filter(row => valid(row.sp)).reverse();
+    if (!data.length) {
+      noData(spxChart, 'SPX close data is not available for this historical period.');
+      return;
+    }
+    const values = data.map(row => Number(row.sp));
+    let minimum = Math.min(...values), maximum = Math.max(...values);
+    const padding = Math.max((maximum - minimum) * 0.1, maximum * 0.005);
+    minimum -= padding; maximum += padding;
+    const left = 28, right = 805, axisX = 820, latestX = 988, top = 24, bottom = 294;
+    const x = index => left + index * ((right - left) / Math.max(data.length - 1, 1));
+    const y = value => bottom - (value - minimum) / Math.max(maximum - minimum, 1) * (bottom - top);
+    let markup = '';
+    for (let step = 0; step <= 4; step += 1) {
+      const value = minimum + (maximum - minimum) * (4 - step) / 4;
+      const position = top + (bottom - top) * step / 4;
+      markup += `<path d="M${left},${position}H${right}" stroke="#414141" stroke-width="1"/>${svgText(axisX, position + 4, value.toLocaleString(undefined, { maximumFractionDigits: 0 }), 'fill="#c8c4b9" font-size="12"')}`;
+    }
+    markup += `<path d="M${right},${top}V${bottom}" stroke="#686868" stroke-width="1"/>`;
+    markup += `<path d="${linePath(data, 'sp', x, y)}" stroke="#75baff" stroke-width="3" stroke-linejoin="round" fill="none"/>`;
+    const latest = data.at(-1), latestY = y(latest.sp);
+    markup += `<circle cx="${right}" cy="${latestY}" r="5" fill="#75baff" stroke="#141414" stroke-width="2"><title>SPX ${latest.sp.toFixed(2)} on ${latest.date}</title></circle>`;
+    markup += svgText(latestX, Math.max(top + 12, Math.min(bottom - 4, latestY)), `SPX  ${latest.sp.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, 'text-anchor="end" fill="#75baff" font-size="13" font-weight="750"');
+    markup += svgText(left, 327, data[0].date, 'fill="#c8c4b9" font-size="12"');
+    markup += svgText(right, 327, latest.date, 'text-anchor="end" fill="#c8c4b9" font-size="12"');
+    spxChart.innerHTML = markup;
+  }
+
+  function renderAll() {
+    renderBreadthChart();
+    renderSpxChart();
+  }
+
+  window.addEventListener('breadth-asof-change', renderAll);
+  renderAll();
 })();
