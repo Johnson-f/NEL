@@ -6,7 +6,17 @@
   if (!chart || !spxChart || !metricControls || !chartHead || typeof rows === 'undefined' || typeof views === 'undefined') return;
 
   let selectedMetric = 'daily';
-  let selectedRange = '66';
+  let selectedRange = '3m';
+  const rangeDefinitions = [
+    { key: '1w', label: '1W', amount: 7, unit: 'day' },
+    { key: '1m', label: '1M', amount: 1, unit: 'month' },
+    { key: '3m', label: '3M', amount: 3, unit: 'month' },
+    { key: '6m', label: '6M', amount: 6, unit: 'month' },
+    { key: 'ytd', label: 'YTD', unit: 'ytd' },
+    { key: '1y', label: '1Y', amount: 1, unit: 'year' },
+    { key: '3y', label: '3Y', amount: 3, unit: 'year' },
+    { key: '5y', label: '5Y', amount: 5, unit: 'year' },
+  ];
   const rangeControls = document.createElement('div');
   rangeControls.className = 'controls';
   rangeControls.setAttribute('aria-label', 'Chart range');
@@ -19,24 +29,57 @@
     button.addEventListener('click', () => { selectedMetric = key; renderAll(); });
     metricControls.append(button);
   });
-  [['5', '1W'], ['22', '1M'], ['66', '3M'], ['132', '6M'], ['ytd', 'YTD']].forEach(([count, label]) => {
-    const button = document.createElement('button');
-    button.textContent = label;
-    button.dataset.range = count;
-    button.addEventListener('click', () => { selectedRange = count; renderAll(); });
-    rangeControls.append(button);
-  });
-
   const valid = value => value !== null && value !== undefined && Number.isFinite(Number(value));
   const svgText = (x, y, value, options = '') => `<text x="${x}" y="${y}" ${options}>${value}</text>`;
   const linePath = (data, key, x, y) => data.map((row, index) => `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(row[key]).toFixed(1)}`).join(' ');
 
+  function selectedDate() {
+    const index = Number(window.BREADTH_ASOF_INDEX || 0);
+    return new Date(`${rows[index].date}T12:00:00`);
+  }
+
+  function rangeCutoff(definition, endDate = selectedDate()) {
+    const cutoff = new Date(endDate);
+    if (definition.unit === 'ytd') return new Date(endDate.getFullYear(), 0, 1, 12);
+    if (definition.unit === 'day') cutoff.setDate(cutoff.getDate() - definition.amount);
+    if (definition.unit === 'month' || definition.unit === 'year') {
+      const originalDay = cutoff.getDate();
+      cutoff.setDate(1);
+      if (definition.unit === 'month') cutoff.setMonth(cutoff.getMonth() - definition.amount);
+      if (definition.unit === 'year') cutoff.setFullYear(cutoff.getFullYear() - definition.amount);
+      const lastDay = new Date(cutoff.getFullYear(), cutoff.getMonth() + 1, 0).getDate();
+      cutoff.setDate(Math.min(originalDay, lastDay));
+    }
+    return cutoff;
+  }
+
+  function localIsoDate(value) {
+    const pad = number => String(number).padStart(2, '0');
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+  }
+
+  function buildRangeControls() {
+    const endDate = selectedDate();
+    const ordered = rangeDefinitions.slice().sort((a, b) =>
+      (endDate - rangeCutoff(a, endDate)) - (endDate - rangeCutoff(b, endDate))
+    );
+    rangeControls.innerHTML = '';
+    ordered.forEach(definition => {
+      const button = document.createElement('button');
+      button.textContent = definition.label;
+      button.dataset.range = definition.key;
+      button.classList.toggle('active', definition.key === selectedRange);
+      button.addEventListener('click', () => { selectedRange = definition.key; renderAll(); });
+      rangeControls.append(button);
+    });
+  }
+
   function sourceRows() {
     const index = Number(window.BREADTH_ASOF_INDEX || 0);
     const historical = rows.slice(index);
-    if (selectedRange !== 'ytd') return historical.slice(0, Number(selectedRange));
-    const selectedYear = rows[index].date.slice(0, 4);
-    return historical.filter(row => row.date.startsWith(selectedYear));
+    const definition = rangeDefinitions.find(item => item.key === selectedRange);
+    const cutoff = localIsoDate(rangeCutoff(definition));
+    return historical.filter(row => row.date >= cutoff);
   }
 
   function noData(target, message) {
@@ -167,6 +210,10 @@
     renderSpxChart();
   }
 
-  window.addEventListener('breadth-asof-change', renderAll);
+  window.addEventListener('breadth-asof-change', () => {
+    buildRangeControls();
+    renderAll();
+  });
+  buildRangeControls();
   renderAll();
 })();
