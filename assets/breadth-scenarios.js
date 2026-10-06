@@ -11,7 +11,7 @@
   else cycle.after(section);
   const styles = document.createElement('link');
   styles.rel = 'stylesheet';
-  styles.href = 'assets/breadth-scenarios.css?v=3';
+  styles.href = 'assets/breadth-scenarios.css?v=4';
   document.head.append(styles);
 
   const horizons = [
