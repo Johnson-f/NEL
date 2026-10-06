@@ -7,11 +7,12 @@
 
   const chartStyles = document.createElement('link');
   chartStyles.rel = 'stylesheet';
-  chartStyles.href = 'assets/breadth-chart.css?v=2';
+  chartStyles.href = 'assets/breadth-chart.css?v=3';
   document.head.append(chartStyles);
 
   const breadthCard = chart.closest('.chart');
   const spxCard = spxChart.closest('.chart');
+  const spxNote = spxCard.querySelector('.legend');
   breadthCard.classList.add('breadth-chart-card');
   spxCard.classList.add('spx-chart-card');
   const historyIntro = document.createElement('div');
@@ -70,6 +71,7 @@
     metricControls.append(button);
   });
   const valid = value => value !== null && value !== undefined && Number.isFinite(Number(value));
+  const singleLineColor = '#86d65d';
   const svgText = (x, y, value, options = '') => `<text x="${x}" y="${y}" ${options}>${value}</text>`;
   const linePath = (data, key, x, y) => data.map((row, index) => `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(row[key]).toFixed(1)}`).join(' ');
 
@@ -177,7 +179,7 @@
     const x = index => left + index * ((right - left) / Math.max(data.length - 1, 1));
     const y = value => bottom - (value - minimum) / Math.max(maximum - minimum, 1) * (bottom - top);
     const colors = selectedMetric === 'ratios' ? ['#e9c46a', '#75baff'] : ['#62d6b4', '#ff6b8a'];
-    let markup = '<rect x="846" y="15" width="142" height="287" rx="8" fill="#1d1d1d" stroke="#3d3d3d"/>';
+    let markup = '';
     for (let step = 0; step <= 4; step += 1) {
       const value = minimum + (maximum - minimum) * (4 - step) / 4;
       const position = top + (bottom - top) * step / 4;
@@ -191,7 +193,7 @@
         markup += `<path d="M${left},${y(level)}H${right}" stroke="#e9c46a" stroke-dasharray="6 5" opacity=".8"/>${svgText(left + 5, y(level) - 6, label, 'fill="#e9c46a" font-size="11"')}`;
       });
     }
-    markup += view.keys.map((key, index) => `<path d="${linePath(data, key, x, y)}" stroke="${selectedMetric === 't2108' ? '#75baff' : colors[index]}" stroke-width="3" stroke-linejoin="round" fill="none"/>`).join('');
+    markup += view.keys.map((key, index) => `<path d="${linePath(data, key, x, y)}" stroke="${view.keys.length === 1 ? singleLineColor : colors[index]}" stroke-width="3" stroke-linejoin="round" fill="none"/>`).join('');
     if (selectedMetric === 't2108') {
       significantT2108Points(data).forEach(point => {
         const px = x(point.index), py = y(point.value), isHigh = point.kind.includes('high');
@@ -202,7 +204,7 @@
         markup += svgText(tx, isHigh ? py + 20 : py - 12, `${label} ${point.value.toFixed(1)}%`, `text-anchor="${anchor}" fill="${isHigh ? '#e9c46a' : '#ff9bb0'}" font-size="11" font-weight="700"`);
       });
       const latest = data.at(-1), latestY = y(latest.t2108);
-      markup += `<circle cx="${right}" cy="${latestY}" r="5" fill="#75baff" stroke="#141414" stroke-width="2"/>${svgText(latestX, Math.max(top + 12, Math.min(bottom - 4, latestY)), `T2108  ${latest.t2108.toFixed(2)}%`, 'text-anchor="end" fill="#75baff" font-size="13" font-weight="750"')}`;
+      markup += `<circle cx="${right}" cy="${latestY}" r="5" fill="${singleLineColor}" stroke="#141414" stroke-width="2"/>${svgText(latestX, Math.max(top + 12, Math.min(bottom - 4, latestY)), `T2108  ${latest.t2108.toFixed(2)}%`, `text-anchor="end" fill="${singleLineColor}" font-size="13" font-weight="750"`)}`;
     } else {
       view.keys.forEach((key, index) => {
         const latest = data.at(-1), py = y(latest[key]), color = colors[index];
@@ -218,6 +220,9 @@
 
   function renderSpxChart() {
     const data = sourceRows().filter(row => valid(row.sp)).reverse();
+    spxNote.textContent = selectedMetric === 't2108'
+      ? 'T2108 turning points are projected onto SPX. Hover or focus a marker for its breadth reading, SPX close and date.'
+      : 'S&P 500 close through the selected date, using the same timeframe.';
     if (!data.length) {
       noData(spxChart, 'SPX close data is not available for this historical period.');
       return;
@@ -229,17 +234,34 @@
     const left = 28, right = 805, axisX = 820, latestX = 976, top = 24, bottom = 294;
     const x = index => left + index * ((right - left) / Math.max(data.length - 1, 1));
     const y = value => bottom - (value - minimum) / Math.max(maximum - minimum, 1) * (bottom - top);
-    let markup = '<rect x="846" y="15" width="142" height="287" rx="8" fill="#1d1d1d" stroke="#3d3d3d"/>';
+    let markup = '';
     for (let step = 0; step <= 4; step += 1) {
       const value = minimum + (maximum - minimum) * (4 - step) / 4;
       const position = top + (bottom - top) * step / 4;
       markup += `<path d="M${left},${position}H${right}" stroke="#414141" stroke-width="1"/>${svgText(axisX, position + 4, value.toLocaleString(undefined, { maximumFractionDigits: 0 }), 'fill="#c8c4b9" font-size="12"')}`;
     }
     markup += `<path d="M${right},${top}V${bottom}" stroke="#686868" stroke-width="1"/>`;
-    markup += `<path d="${linePath(data, 'sp', x, y)}" stroke="#75baff" stroke-width="3" stroke-linejoin="round" fill="none"/>`;
+    markup += `<path d="${linePath(data, 'sp', x, y)}" stroke="${singleLineColor}" stroke-width="3" stroke-linejoin="round" fill="none"/>`;
+    if (selectedMetric === 't2108') {
+      const t2108Data = sourceRows().filter(row => valid(row.sp) && valid(row.t2108)).reverse();
+      const signalPoints = significantT2108Points(t2108Data);
+      const spxIndexByDate = new Map(data.map((row, index) => [row.date, index]));
+      signalPoints.forEach(point => {
+        const signal = t2108Data[point.index], spxIndex = spxIndexByDate.get(signal.date);
+        if (spxIndex === undefined) return;
+        const px = x(spxIndex), py = y(data[spxIndex].sp), isHigh = point.kind.includes('high');
+        const label = selectedRange === 'ytd' && point.kind.startsWith('Range') ? point.kind.replace('Range', 'YTD') : point.kind;
+        const color = isHigh ? '#e9c46a' : '#ff6b8a';
+        const anchor = px > right - 125 ? 'end' : px < left + 80 ? 'start' : 'middle';
+        const tx = anchor === 'end' ? px - 8 : anchor === 'start' ? px + 8 : px;
+        markup += `<path d="M${px},${top}V${bottom}" stroke="${color}" stroke-width="1" stroke-dasharray="3 5" opacity=".32"/>`;
+        markup += `<circle class="spx-signal-point" cx="${px}" cy="${py}" r="5" fill="${color}" stroke="#141414" stroke-width="2" tabindex="0"><title>${label}: T2108 ${point.value.toFixed(2)}% · SPX ${Number(data[spxIndex].sp).toFixed(2)} · ${signal.date}</title></circle>`;
+        markup += svgText(tx, isHigh ? py - 12 : py + 20, `T2108 ${label.toLowerCase()} ${point.value.toFixed(1)}%`, `text-anchor="${anchor}" fill="${color}" font-size="10" font-weight="700"`);
+      });
+    }
     const latest = data.at(-1), latestY = y(latest.sp);
-    markup += `<circle cx="${right}" cy="${latestY}" r="5" fill="#75baff" stroke="#141414" stroke-width="2"><title>SPX ${latest.sp.toFixed(2)} on ${latest.date}</title></circle>`;
-    markup += svgText(latestX, Math.max(top + 12, Math.min(bottom - 4, latestY)), `SPX  ${latest.sp.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, 'text-anchor="end" fill="#75baff" font-size="13" font-weight="750"');
+    markup += `<circle cx="${right}" cy="${latestY}" r="5" fill="${singleLineColor}" stroke="#141414" stroke-width="2"><title>SPX ${latest.sp.toFixed(2)} on ${latest.date}</title></circle>`;
+    markup += svgText(latestX, Math.max(top + 12, Math.min(bottom - 4, latestY)), `SPX  ${latest.sp.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, `text-anchor="end" fill="${singleLineColor}" font-size="13" font-weight="750"`);
     markup += svgText(left, 327, data[0].date, 'fill="#c8c4b9" font-size="12"');
     markup += svgText(right, 327, latest.date, 'text-anchor="end" fill="#c8c4b9" font-size="12"');
     spxChart.innerHTML = markup;

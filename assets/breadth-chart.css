@@ -117,6 +117,10 @@
   margin: 0;
 }
 
+.spx-signal-point { cursor: help; transition: r .15s ease, filter .15s ease; }
+.spx-signal-point:hover,
+.spx-signal-point:focus { r: 8px; filter: drop-shadow(0 0 4px currentColor); outline: none; }
+
 .spx-chart-card > .chart-head {
   display: flex;
   align-items: flex-start;

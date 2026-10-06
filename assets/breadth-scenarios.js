@@ -9,7 +9,7 @@
   cycle.after(section);
   const styles = document.createElement('link');
   styles.rel = 'stylesheet';
-  styles.href = 'assets/breadth-scenarios.css?v=1';
+  styles.href = 'assets/breadth-scenarios.css?v=2';
   document.head.append(styles);
 
   const horizons = [
@@ -100,6 +100,19 @@
     return sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
   }
 
+  function weightedQuantile(items, probability) {
+    if (!items.length) return null;
+    const ordered = items.slice().sort((a, b) => a.value - b.value);
+    const total = ordered.reduce((sum, item) => sum + item.weight, 0);
+    const target = total * probability;
+    let cumulative = 0;
+    for (const item of ordered) {
+      cumulative += item.weight;
+      if (cumulative >= target) return item.value;
+    }
+    return ordered.at(-1).value;
+  }
+
   function scenarioFor(value, threshold) {
     if (value >= threshold) return 'up';
     if (value <= -threshold) return 'down';
@@ -114,47 +127,77 @@
     const candidates = [];
     for (let index = asOfIndex + horizon.sessions; index < rows.length - 200; index += 1) {
       const vector = features(index);
-      if (!dimensions.every(dimension => available(vector[dimension]))) continue;
+      const sharedDimensions = dimensions.filter(dimension => available(vector[dimension]));
+      if (sharedDimensions.length < 7) continue;
       const endpoint = rows[index - horizon.sessions];
       if (!endpoint || !available(rows[index].sp) || !available(endpoint.sp)) continue;
-      candidates.push({ index, vector, outcome: Number(endpoint.sp) / Number(rows[index].sp) - 1 });
+      candidates.push({ index, vector, sharedDimensions, outcome: Number(endpoint.sp) / Number(rows[index].sp) - 1 });
     }
     if (candidates.length < 35) return null;
 
     const scales = dimensions.map(dimension => {
-      const values = candidates.map(candidate => candidate.vector[dimension]);
+      const values = candidates.map(candidate => candidate.vector[dimension]).filter(available);
       const spread = quantile(values, .75) - quantile(values, .25);
       return Math.max(spread / 1.349, .015);
     });
     candidates.forEach(candidate => {
-      candidate.distance = Math.sqrt(dimensions.reduce((sum, dimension, position) => {
+      const squaredDistance = candidate.sharedDimensions.reduce((sum, dimension) => {
+        const position = dimensions.indexOf(dimension);
         const difference = (candidate.vector[dimension] - target[dimension]) / scales[position];
         return sum + difference ** 2;
-      }, 0) / dimensions.length);
+      }, 0) / candidate.sharedDimensions.length;
+      const missingPenalty = Math.sqrt(dimensions.length / candidate.sharedDimensions.length);
+      candidate.distance = Math.sqrt(squaredDistance) * missingPenalty;
     });
     candidates.sort((a, b) => a.distance - b.distance);
 
-    const analogs = [], spacing = Math.max(5, Math.round(horizon.sessions / 3));
-    for (const candidate of candidates) {
-      if (analogs.some(analog => Math.abs(analog.index - candidate.index) < spacing)) continue;
-      analogs.push(candidate);
-      if (analogs.length === 80) break;
-    }
-    if (analogs.length < 25) return null;
+    // Every eligible historical date contributes, but distant matches decay quickly.
+    // The bandwidth is adaptive, so a selected date is compared with its own historical neighborhood.
+    const bandwidth = Math.max(quantile(candidates.map(candidate => candidate.distance), .15), .05);
+    candidates.forEach(candidate => {
+      candidate.rawWeight = Math.exp(-.5 * (candidate.distance / bandwidth) ** 2);
+    });
 
-    const medianDistance = quantile(analogs.map(analog => analog.distance), .5) || 1;
-    analogs.forEach(analog => { analog.weight = Math.exp(-analog.distance / medianDistance); });
+    // Forward outcomes overlap. Divide each observation by the nearby kernel mass so a long,
+    // persistent market episode cannot count as dozens of independent confirmations.
+    const chronological = candidates.slice().sort((a, b) => a.index - b.index);
+    const prefix = [0];
+    chronological.forEach(candidate => prefix.push(prefix.at(-1) + candidate.rawWeight));
+    let lower = 0, upper = 0;
+    chronological.forEach((candidate, position) => {
+      while (chronological[lower].index < candidate.index - horizon.sessions + 1) lower += 1;
+      if (upper < position) upper = position;
+      while (upper + 1 < chronological.length && chronological[upper + 1].index <= candidate.index + horizon.sessions - 1) upper += 1;
+      const localMass = prefix[upper + 1] - prefix[lower];
+      candidate.weight = candidate.rawWeight / Math.max(localMass, candidate.rawWeight);
+      candidate.baseWeight = 1 / (upper - lower + 1);
+    });
+
     const categoryWeights = { up: 1, range: 1, down: 1 };
-    analogs.forEach(analog => { categoryWeights[scenarioFor(analog.outcome, horizon.threshold)] += analog.weight; });
+    const baseCategoryWeights = { up: 1, range: 1, down: 1 };
+    candidates.forEach(candidate => { categoryWeights[scenarioFor(candidate.outcome, horizon.threshold)] += candidate.weight; });
+    candidates.forEach(candidate => { baseCategoryWeights[scenarioFor(candidate.outcome, horizon.threshold)] += candidate.baseWeight; });
     const totalWeight = Object.values(categoryWeights).reduce((sum, value) => sum + value, 0);
-    const probabilities = Object.fromEntries(Object.entries(categoryWeights).map(([key, value]) => [key, value / totalWeight]));
-    const outcomes = analogs.map(analog => analog.outcome);
+    const baseTotalWeight = Object.values(baseCategoryWeights).reduce((sum, value) => sum + value, 0);
+    const conditionalProbabilities = Object.fromEntries(Object.entries(categoryWeights).map(([key, value]) => [key, value / totalWeight]));
+    const baseProbabilities = Object.fromEntries(Object.entries(baseCategoryWeights).map(([key, value]) => [key, value / baseTotalWeight]));
+    // Similarity contributes a measured tilt, while the broader historical base rate prevents
+    // a noisy neighborhood from creating overconfident probabilities.
+    const similarityInfluence = horizon.sessions === 5 ? .10 : horizon.sessions === 21 ? .75 : 1;
+    const probabilities = Object.fromEntries(Object.keys(categoryWeights).map(key => [
+      key,
+      baseProbabilities[key] + similarityInfluence * (conditionalProbabilities[key] - baseProbabilities[key]),
+    ]));
+    const weightedOutcomes = candidates.map(candidate => ({ value: candidate.outcome, weight: candidate.weight }));
+    const weightSum = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
     return {
-      analogs: analogs.length,
+      eligible: candidates.length,
+      coreMatches: candidates.filter(candidate => candidate.distance <= bandwidth).length,
+      effectiveEpisodes: weightSum,
       probabilities,
-      median: quantile(outcomes, .5),
-      low: quantile(outcomes, .25),
-      high: quantile(outcomes, .75),
+      median: weightedQuantile(weightedOutcomes, .5),
+      low: weightedQuantile(weightedOutcomes, .25),
+      high: weightedQuantile(weightedOutcomes, .75),
       winner: scenarios.slice().sort((a, b) => probabilities[b.key] - probabilities[a.key])[0],
     };
   }
@@ -162,13 +205,13 @@
   function renderCard(horizon, result) {
     if (!result) return `<article class="scenario-card"><div class="scenario-card-head"><h3>${horizon.label}</h3><span class="scenario-sessions">${horizon.sessions} sessions</span></div><div class="scenario-empty">Not enough earlier, complete market history for this date.</div></article>`;
     const winnerProbability = result.probabilities[result.winner.key];
-    return `<article class="scenario-card" style="--scenario-color:${result.winner.color}"><div class="scenario-card-head"><h3>${horizon.label}</h3><span class="scenario-sessions">${horizon.sessions} sessions</span></div><div class="scenario-winner"><div class="scenario-winner-label">Most likely · ${result.winner.label}</div><div class="scenario-probability">${Math.round(winnerProbability * 100)}%</div><div class="scenario-probability-note">Weighted share of similar historical setups</div></div><div class="scenario-bars">${scenarios.map(scenario => `<div class="scenario-row"><span>${scenario.label}</span><div class="scenario-track"><div class="scenario-fill" style="width:${result.probabilities[scenario.key] * 100}%;background:${scenario.color}"></div></div><span>${Math.round(result.probabilities[scenario.key] * 100)}%</span></div>`).join('')}</div><div class="scenario-stats"><div class="scenario-stat"><span>Median SPX return</span><b>${pct(result.median)}</b></div><div class="scenario-stat"><span>Middle 50% range</span><b>${pct(result.low)} to ${pct(result.high)}</b></div></div><div class="scenario-stats"><div class="scenario-stat"><span>Independent analogs</span><b>${result.analogs}</b></div><div class="scenario-stat"><span>Scenario threshold</span><b>±${(horizon.threshold * 100).toFixed(0)}%</b></div></div></article>`;
+    return `<article class="scenario-card" style="--scenario-color:${result.winner.color}"><div class="scenario-card-head"><h3>${horizon.label}</h3><span class="scenario-sessions">${horizon.sessions} sessions</span></div><div class="scenario-winner"><div class="scenario-winner-label">Most likely · ${result.winner.label}</div><div class="scenario-probability">${Math.round(winnerProbability * 100)}%</div><div class="scenario-probability-note">Overlap-adjusted share of similar historical setups</div></div><div class="scenario-bars">${scenarios.map(scenario => `<div class="scenario-row"><span>${scenario.label}</span><div class="scenario-track"><div class="scenario-fill" style="width:${result.probabilities[scenario.key] * 100}%;background:${scenario.color}"></div></div><span>${Math.round(result.probabilities[scenario.key] * 100)}%</span></div>`).join('')}</div><div class="scenario-stats"><div class="scenario-stat"><span>Median SPX return</span><b>${pct(result.median)}</b></div><div class="scenario-stat"><span>Middle 50% range</span><b>${pct(result.low)} to ${pct(result.high)}</b></div></div><div class="scenario-stats"><div class="scenario-stat"><span>Effective episodes</span><b>${Math.round(result.effectiveEpisodes)}</b></div><div class="scenario-stat"><span>Eligible history</span><b>${result.eligible.toLocaleString()} dates</b></div></div><div class="scenario-stats"><div class="scenario-stat"><span>Core similar dates</span><b>${result.coreMatches.toLocaleString()}</b></div><div class="scenario-stat"><span>Scenario threshold</span><b>±${(horizon.threshold * 100).toFixed(0)}%</b></div></div></article>`;
   }
 
   function render(index = Number(window.BREADTH_ASOF_INDEX || 0)) {
     const asOf = rows[index];
     const results = horizons.map(horizon => modelHorizon(index, horizon));
-    section.innerHTML = `<div class="scenario-head"><div><div class="eyebrow">SPX historical scenario engine · ${asOf.date}</div><h2>What tended to happen next?</h2><p>Probabilities use earlier setups with similar breadth, SPX momentum, trend and volatility. Time Machine calculations include only information and completed outcomes available on the selected date.</p></div><span class="scenario-badge">Historical analog odds</span></div><div class="scenario-grid">${horizons.map((horizon, position) => renderCard(horizon, results[position])).join('')}</div><div class="scenario-foot"><span>Adjacent dates are spaced apart so one market episode cannot dominate the analog sample.</span><span>Scenario odds are historical frequencies, not guaranteed forecasts.</span></div>`;
+    section.innerHTML = `<div class="scenario-head"><div><div class="eyebrow">SPX historical scenario engine · ${asOf.date}</div><h2>What tended to happen next?</h2><p>Every eligible earlier setup contributes according to similarity in breadth, SPX momentum, trend and volatility. Overlapping forward periods are down-weighted so one persistent episode cannot dominate. Time Machine calculations use only information and completed outcomes available by the selected date.</p></div><span class="scenario-badge">Historical analog odds</span></div><div class="scenario-grid">${horizons.map((horizon, position) => renderCard(horizon, results[position])).join('')}</div><div class="scenario-foot"><span>Effective episodes reflect similarity weights and overlapping-outcome adjustment—not a fixed sample cap.</span><span>Scenario odds are historical frequencies, not guaranteed forecasts.</span></div>`;
   }
 
   window.addEventListener('breadth-asof-change', event => render(event.detail.index));
