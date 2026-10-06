@@ -6,7 +6,9 @@
   const section = document.createElement('section');
   section.id = 'spx-scenarios';
   section.className = 'panel scenario-panel';
-  cycle.after(section);
+  const readingsTable = document.querySelector('.table-card');
+  if (readingsTable) readingsTable.before(section);
+  else cycle.after(section);
   const styles = document.createElement('link');
   styles.rel = 'stylesheet';
   styles.href = 'assets/breadth-scenarios.css?v=3';
