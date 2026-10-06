@@ -82,6 +82,7 @@
       ratioBalance(row.ratio5),
       ratioBalance(row.ratio10),
       available(row.t2108) ? Number(row.t2108) / 100 : null,
+      pastReturn(index, 5),
       pastReturn(index, 21),
       pastReturn(index, 63),
       realizedVolatility(index),
@@ -183,7 +184,7 @@
     const baseProbabilities = Object.fromEntries(Object.entries(baseCategoryWeights).map(([key, value]) => [key, value / baseTotalWeight]));
     // Similarity contributes a measured tilt, while the broader historical base rate prevents
     // a noisy neighborhood from creating overconfident probabilities.
-    const similarityInfluence = horizon.sessions === 5 ? .10 : horizon.sessions === 21 ? .75 : 1;
+    const similarityInfluence = horizon.sessions === 5 ? .25 : horizon.sessions === 21 ? .75 : 1;
     const probabilities = Object.fromEntries(Object.keys(categoryWeights).map(key => [
       key,
       baseProbabilities[key] + similarityInfluence * (conditionalProbabilities[key] - baseProbabilities[key]),
@@ -195,6 +196,8 @@
       coreMatches: candidates.filter(candidate => candidate.distance <= bandwidth).length,
       effectiveEpisodes: weightSum,
       probabilities,
+      baseProbabilities,
+      edgeStrength: Math.max(...Object.keys(probabilities).map(key => Math.abs(probabilities[key] - baseProbabilities[key]))),
       median: weightedQuantile(weightedOutcomes, .5),
       low: weightedQuantile(weightedOutcomes, .25),
       high: weightedQuantile(weightedOutcomes, .75),
@@ -205,7 +208,13 @@
   function renderCard(horizon, result) {
     if (!result) return `<article class="scenario-card"><div class="scenario-card-head"><h3>${horizon.label}</h3><span class="scenario-sessions">${horizon.sessions} sessions</span></div><div class="scenario-empty">Not enough earlier, complete market history for this date.</div></article>`;
     const winnerProbability = result.probabilities[result.winner.key];
-    return `<article class="scenario-card" style="--scenario-color:${result.winner.color}"><div class="scenario-card-head"><h3>${horizon.label}</h3><span class="scenario-sessions">${horizon.sessions} sessions</span></div><div class="scenario-winner"><div class="scenario-winner-label">Most likely · ${result.winner.label}</div><div class="scenario-probability">${Math.round(winnerProbability * 100)}%</div><div class="scenario-probability-note">Overlap-adjusted share of similar historical setups</div></div><div class="scenario-bars">${scenarios.map(scenario => `<div class="scenario-row"><span>${scenario.label}</span><div class="scenario-track"><div class="scenario-fill" style="width:${result.probabilities[scenario.key] * 100}%;background:${scenario.color}"></div></div><span>${Math.round(result.probabilities[scenario.key] * 100)}%</span></div>`).join('')}</div><div class="scenario-stats"><div class="scenario-stat"><span>Median SPX return</span><b>${pct(result.median)}</b></div><div class="scenario-stat"><span>Middle 50% range</span><b>${pct(result.low)} to ${pct(result.high)}</b></div></div><div class="scenario-stats"><div class="scenario-stat"><span>Effective episodes</span><b>${Math.round(result.effectiveEpisodes)}</b></div><div class="scenario-stat"><span>Eligible history</span><b>${result.eligible.toLocaleString()} dates</b></div></div><div class="scenario-stats"><div class="scenario-stat"><span>Core similar dates</span><b>${result.coreMatches.toLocaleString()}</b></div><div class="scenario-stat"><span>Scenario threshold</span><b>±${(horizon.threshold * 100).toFixed(0)}%</b></div></div></article>`;
+    const hasMeasurableEdge = result.edgeStrength >= .01;
+    const edge = winnerProbability - result.baseProbabilities[result.winner.key];
+    const headline = hasMeasurableEdge ? `Most likely · ${result.winner.label}` : 'No measurable analog edge';
+    const probabilityNote = hasMeasurableEdge
+      ? `${edge >= 0 ? '+' : ''}${(edge * 100).toFixed(1)} pts versus the historical base rate`
+      : `Similar setups remain near the ${result.winner.label.toLowerCase()} base rate`;
+    return `<article class="scenario-card" style="--scenario-color:${result.winner.color}"><div class="scenario-card-head"><h3>${horizon.label}</h3><span class="scenario-sessions">${horizon.sessions} sessions</span></div><div class="scenario-winner"><div class="scenario-winner-label">${headline}</div><div class="scenario-probability">${(winnerProbability * 100).toFixed(1)}%</div><div class="scenario-probability-note">${probabilityNote}</div></div><div class="scenario-bars">${scenarios.map(scenario => `<div class="scenario-row"><span>${scenario.label}</span><div class="scenario-track"><div class="scenario-fill" style="width:${result.probabilities[scenario.key] * 100}%;background:${scenario.color}"></div></div><span>${(result.probabilities[scenario.key] * 100).toFixed(1)}%</span></div>`).join('')}</div><div class="scenario-stats"><div class="scenario-stat"><span>Median SPX return</span><b>${pct(result.median)}</b></div><div class="scenario-stat"><span>Middle 50% range</span><b>${pct(result.low)} to ${pct(result.high)}</b></div></div><div class="scenario-stats"><div class="scenario-stat"><span>Effective episodes</span><b>${Math.round(result.effectiveEpisodes)}</b></div><div class="scenario-stat"><span>Eligible history</span><b>${result.eligible.toLocaleString()} dates</b></div></div><div class="scenario-stats"><div class="scenario-stat"><span>Core similar dates</span><b>${result.coreMatches.toLocaleString()}</b></div><div class="scenario-stat"><span>Scenario threshold</span><b>±${(horizon.threshold * 100).toFixed(0)}%</b></div></div></article>`;
   }
 
   function render(index = Number(window.BREADTH_ASOF_INDEX || 0)) {
