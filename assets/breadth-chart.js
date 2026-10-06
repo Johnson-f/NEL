@@ -7,7 +7,7 @@
 
   const chartStyles = document.createElement('link');
   chartStyles.rel = 'stylesheet';
-  chartStyles.href = 'assets/breadth-chart.css?v=3';
+  chartStyles.href = 'assets/breadth-chart.css?v=4';
   document.head.append(chartStyles);
 
   const breadthCard = chart.closest('.chart');
@@ -74,6 +74,85 @@
   const singleLineColor = '#86d65d';
   const svgText = (x, y, value, options = '') => `<text x="${x}" y="${y}" ${options}>${value}</text>`;
   const linePath = (data, key, x, y) => data.map((row, index) => `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(row[key]).toFixed(1)}`).join(' ');
+
+  function signed(value, digits = 1) {
+    return `${value > 0 ? '+' : ''}${Number(value).toFixed(digits)}`;
+  }
+
+  function attachHover(target, data, series, x, y, options = {}) {
+    const namespace = 'http://www.w3.org/2000/svg';
+    const stage = target.closest('.chart-stage');
+    let tooltip = stage.querySelector('.chart-hover-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.className = 'chart-hover-tooltip';
+      tooltip.hidden = true;
+      stage.append(tooltip);
+    }
+    const layer = document.createElementNS(namespace, 'g');
+    layer.classList.add('chart-hover-layer');
+    layer.setAttribute('visibility', 'hidden');
+    const guide = document.createElementNS(namespace, 'line');
+    guide.classList.add('chart-hover-guide');
+    guide.setAttribute('y1', '24');
+    guide.setAttribute('y2', '294');
+    layer.append(guide);
+    const dots = series.map(item => {
+      const dot = document.createElementNS(namespace, 'circle');
+      dot.classList.add('chart-hover-dot');
+      dot.setAttribute('r', '5');
+      dot.setAttribute('fill', item.color);
+      layer.append(dot);
+      return dot;
+    });
+    target.append(layer);
+    target.style.cursor = 'crosshair';
+
+    target.onpointermove = event => {
+      const matrix = target.getScreenCTM();
+      if (!matrix) return;
+      const point = target.createSVGPoint();
+      point.x = event.clientX;
+      point.y = event.clientY;
+      const local = point.matrixTransform(matrix.inverse());
+      if (local.x < 28 || local.x > 805 || local.y < 18 || local.y > 305) {
+        layer.setAttribute('visibility', 'hidden');
+        tooltip.hidden = true;
+        return;
+      }
+      const index = Math.max(0, Math.min(data.length - 1, Math.round((local.x - 28) / (805 - 28) * Math.max(data.length - 1, 1))));
+      const row = data[index], px = x(index);
+      guide.setAttribute('x1', px);
+      guide.setAttribute('x2', px);
+      series.forEach((item, position) => {
+        dots[position].setAttribute('cx', px);
+        dots[position].setAttribute('cy', y(row[item.key]));
+      });
+      layer.setAttribute('visibility', 'visible');
+
+      const latest = data.at(-1);
+      const values = series.map(item => {
+        const value = Number(row[item.key]), current = Number(latest[item.key]);
+        const change = options.percentChange
+          ? `${signed((current / value - 1) * 100, 2)}%`
+          : options.points
+            ? `${signed(current - value, 2)} pts`
+            : signed(current - value, options.ratio ? 2 : 0);
+        return `<div class="chart-hover-row"><span><i style="background:${item.color}"></i>${item.label}</span><b>${options.format(value)}</b><em>to now ${change}</em></div>`;
+      }).join('');
+      tooltip.innerHTML = `<div class="chart-hover-date">${row.date}</div>${values}`;
+      tooltip.hidden = false;
+      const stageBounds = stage.getBoundingClientRect();
+      const tooltipWidth = tooltip.offsetWidth;
+      const preferredLeft = event.clientX - stageBounds.left + 14;
+      tooltip.style.left = `${Math.max(8, Math.min(stageBounds.width - tooltipWidth - 8, preferredLeft))}px`;
+      tooltip.style.top = `${Math.max(8, Math.min(stageBounds.height - tooltip.offsetHeight - 8, event.clientY - stageBounds.top - 20))}px`;
+    };
+    target.onpointerleave = () => {
+      layer.setAttribute('visibility', 'hidden');
+      tooltip.hidden = true;
+    };
+  }
 
   function selectedDate() {
     const index = Number(window.BREADTH_ASOF_INDEX || 0);
@@ -216,6 +295,21 @@
     markup += svgText(left, 327, data[0].date, 'fill="#c8c4b9" font-size="12"');
     markup += svgText(right, 327, data.at(-1).date, 'text-anchor="end" fill="#c8c4b9" font-size="12"');
     chart.innerHTML = markup;
+    const names = selectedMetric === 'ratios' ? ['5D', '10D'] : selectedMetric === 't2108' ? ['T2108'] : ['Up', 'Down'];
+    const series = view.keys.map((key, index) => ({
+      key,
+      label: names[index],
+      color: view.keys.length === 1 ? singleLineColor : colors[index],
+    }));
+    attachHover(chart, data, series, x, y, {
+      ratio: selectedMetric === 'ratios',
+      points: selectedMetric === 't2108',
+      format: value => selectedMetric === 't2108'
+        ? `${value.toFixed(2)}%`
+        : selectedMetric === 'ratios'
+          ? value.toFixed(2)
+          : value.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+    });
   }
 
   function renderSpxChart() {
@@ -265,6 +359,10 @@
     markup += svgText(left, 327, data[0].date, 'fill="#c8c4b9" font-size="12"');
     markup += svgText(right, 327, latest.date, 'text-anchor="end" fill="#c8c4b9" font-size="12"');
     spxChart.innerHTML = markup;
+    attachHover(spxChart, data, [{ key: 'sp', label: 'SPX', color: singleLineColor }], x, y, {
+      percentChange: true,
+      format: value => value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    });
   }
 
   function renderAll() {
