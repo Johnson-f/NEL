@@ -9,13 +9,14 @@
   cycle.after(section);
   const styles = document.createElement('link');
   styles.rel = 'stylesheet';
-  styles.href = 'assets/breadth-scenarios.css?v=2';
+  styles.href = 'assets/breadth-scenarios.css?v=3';
   document.head.append(styles);
 
   const horizons = [
-    { label: '1 week', sessions: 5, threshold: .02 },
     { label: '1 month', sessions: 21, threshold: .05 },
     { label: '3 months', sessions: 63, threshold: .10 },
+    { label: '6 months', sessions: 126, threshold: .15 },
+    { label: '1 year', sessions: 252, threshold: .20 },
   ];
   const scenarios = [
     { key: 'up', label: 'Strong upside', color: '#62d6b4' },
@@ -184,7 +185,7 @@
     const baseProbabilities = Object.fromEntries(Object.entries(baseCategoryWeights).map(([key, value]) => [key, value / baseTotalWeight]));
     // Similarity contributes a measured tilt, while the broader historical base rate prevents
     // a noisy neighborhood from creating overconfident probabilities.
-    const similarityInfluence = horizon.sessions === 5 ? .25 : horizon.sessions === 21 ? .75 : 1;
+    const similarityInfluence = horizon.sessions === 21 ? .75 : 1;
     const probabilities = Object.fromEntries(Object.keys(categoryWeights).map(key => [
       key,
       baseProbabilities[key] + similarityInfluence * (conditionalProbabilities[key] - baseProbabilities[key]),
