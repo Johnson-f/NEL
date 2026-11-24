@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-11-16",
+  "as_of": "2026-11-23",
   "funds": {
     "AIQ": [
       {
@@ -201,54 +201,54 @@
     ],
     "ARKG": [
       {
+        "name": "Tempus AI Inc Class A common stock",
+        "symbol": "TEM",
+        "weight": 0.085036606
+      },
+      {
         "name": "Twist Bioscience Corp",
         "symbol": "TWST",
-        "weight": 0.0874774
+        "weight": 0.0824551
       },
       {
         "name": "10x Genomics Inc Ordinary Shares - Class A",
         "symbol": "TXG",
-        "weight": 0.0872691
-      },
-      {
-        "name": "Tempus AI Inc Class A common stock",
-        "symbol": "TEM",
-        "weight": 0.08364101
+        "weight": 0.080287196
       },
       {
         "name": "Absci Corp",
         "symbol": "ABSI",
-        "weight": 0.0555766
+        "weight": 0.0547055
       },
       {
         "name": "CRISPR Therapeutics AG",
         "symbol": "CRSP",
-        "weight": 0.0521904
+        "weight": 0.052926403
       },
       {
         "name": "Guardant Health Inc",
         "symbol": "GH",
-        "weight": 0.0488275
+        "weight": 0.050415803
       },
       {
         "name": "Natera Inc",
         "symbol": "NTRA",
-        "weight": 0.0470921
+        "weight": 0.047886502
       },
       {
-        "name": "Illumina Inc",
-        "symbol": "ILMN",
-        "weight": 0.0469396
+        "name": "CareDx Inc",
+        "symbol": "CDNA",
+        "weight": 0.043819297
       },
       {
         "name": "Eli Lilly and Co",
         "symbol": "LLY",
-        "weight": 0.0392157
+        "weight": 0.0433076
       },
       {
-        "name": "Beam Therapeutics Inc",
-        "symbol": "BEAM",
-        "weight": 0.0368618
+        "name": "Illumina Inc",
+        "symbol": "ILMN",
+        "weight": 0.0408678
       }
     ],
     "ARKK": [
@@ -302,52 +302,52 @@
       {
         "name": "Tesla Inc",
         "symbol": "TSLA",
-        "weight": 0.1256087
+        "weight": 0.1296677
       },
       {
         "name": "Space Exploration Technologies Corp Class A",
         "symbol": "SPCX",
-        "weight": 0.0844216
+        "weight": 0.082307905
       },
       {
         "name": "NVIDIA Corp",
         "symbol": "NVDA",
-        "weight": 0.0579618
+        "weight": 0.0578091
       },
       {
         "name": "Kratos Defense & Security Solutions Inc",
         "symbol": "KTOS",
-        "weight": 0.0571374
+        "weight": 0.0560863
       },
       {
         "name": "Palantir Technologies Inc Ordinary Shares - Class A",
         "symbol": "PLTR",
-        "weight": 0.051702097
+        "weight": 0.0504646
       },
       {
         "name": "Alphabet Inc Class C",
         "symbol": "GOOG",
-        "weight": 0.0405224
+        "weight": 0.0415842
       },
       {
         "name": "Rocket Lab Corp",
         "symbol": "RKLB",
-        "weight": 0.0400252
+        "weight": 0.0385974
       },
       {
         "name": "Teradyne Inc",
         "symbol": "TER",
-        "weight": 0.0381675
-      },
-      {
-        "name": "AeroVironment Inc",
-        "symbol": "AVAV",
-        "weight": 0.0355763
+        "weight": 0.0368119
       },
       {
         "name": "Amazon.com Inc",
         "symbol": "AMZN",
-        "weight": 0.0350869
+        "weight": 0.0360214
+      },
+      {
+        "name": "AeroVironment Inc",
+        "symbol": "AVAV",
+        "weight": 0.034637798
       }
     ],
     "ARKW": [
@@ -5427,52 +5427,52 @@
       {
         "name": "Dentsply Sirona Inc",
         "symbol": "XRAY",
-        "weight": 0.054264
-      },
-      {
-        "name": "Synopsys Inc",
-        "symbol": "SNPS",
-        "weight": 0.052386098
+        "weight": 0.0565331
       },
       {
         "name": "Dassault Systemes SE",
         "symbol": "DSY.PA",
-        "weight": 0.050146297
+        "weight": 0.0554674
       },
       {
         "name": "Autodesk Inc",
         "symbol": "ADSK",
-        "weight": 0.0498587
+        "weight": 0.0529941
+      },
+      {
+        "name": "Synopsys Inc",
+        "symbol": "SNPS",
+        "weight": 0.052462302
       },
       {
         "name": "PTC Inc",
         "symbol": "PTC",
-        "weight": 0.0498457
+        "weight": 0.051591903
       },
       {
         "name": "Siemens AG",
         "symbol": "SIE.DE",
-        "weight": 0.0495536
+        "weight": 0.0503421
+      },
+      {
+        "name": "Straumann Holding AG",
+        "symbol": "STMN.SW",
+        "weight": 0.0414085
       },
       {
         "name": "Xometry Inc Ordinary Shares - Class A",
         "symbol": "XMTR",
-        "weight": 0.0415072
+        "weight": 0.040215902
       },
       {
-        "name": "HP Inc",
-        "symbol": "HPQ",
-        "weight": 0.0409544
-      },
-      {
-        "name": "Proto Labs Inc",
-        "symbol": "PRLB",
-        "weight": 0.040320702
+        "name": "BICO Group AB Class B",
+        "symbol": "BICO.ST",
+        "weight": 0.0399868
       },
       {
         "name": "3D Systems Corp",
         "symbol": "DDD",
-        "weight": 0.040297598
+        "weight": 0.0386654
       }
     ],
     "PSIL": [
